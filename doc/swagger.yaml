@@ -1,0 +1,86 @@
+openapi: '3.0.2'
+info:
+  title: game-stack api
+  version: '1.0'
+servers:
+  - url: https://localhost
+paths:
+  /matchmaking:
+    summary: Enters the user in matchmaking.
+    post:
+      requestBody:
+        required: true
+        content: 
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchmakingRequest'
+      responses:
+        '200':
+          description: Return either an error describing what went wrong or information required to connect and authenticate to the matchmaking server. 
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - body
+                properties:
+                  message:
+                    type: string
+                    example: success
+                  body:
+                    $ref: '#/components/schemas/Matchmaking'
+                    type: object
+        default:
+          description: Handles any error that may happen when trying to enter matchmaking like unauthorized or internal server error.
+          content:
+            application/json:
+              schema: 
+                type: object
+                required:
+                    - message
+                    - body
+                properties:
+                  message:
+                    type: string
+                    example: error
+                  body:
+                    $ref: '#/components/schemas/Error'
+                    type: object
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - id
+        - message
+      properties:
+        id: 
+          type: integer
+          format: int32
+          example: 1
+        message: 
+          type: string
+          example: unauthorized
+    Matchmaking:
+      type: object
+      required:
+        - id
+        - address
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 123456
+        address:
+          type: string
+          example: matchmaking.example.org:8192
+    MatchmakingRequest:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          format: string
+          example: xXcoolguyXx
+

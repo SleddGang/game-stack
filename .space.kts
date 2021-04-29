@@ -5,9 +5,10 @@
 */
 
 job("Upload docs") {
-    container(displayName = "Say Hello", image = "ubuntu") {
+    container(displayName = "Upload Docs", image = "ubuntu") {
         env["KEY"] = Secrets("docs-rsa")
         shellScript {
+            interpreter = "/bin/bash"
             content = """
                 echo Uploading swagger.yaml
                 ssh-add - <<< ${'$'}KEY

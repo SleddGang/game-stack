@@ -15,7 +15,7 @@ job("Upload docs") {
                 apt-get install -y openssh-client
                 echo Uploading swagger.yaml
                 echo "${'$'}KEY" | tr "_" "\n" > key.pem
-                scp -i ./key.pem ./docs/swagger.yaml ec2-user@ec2-3-212-113-177.compute-1.amazonaws.com:/var/www/docs.yourgamestack.com/html/rest
+                scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ./key.pem ./docs/swagger.yaml ec2-user@ec2-3-212-113-177.compute-1.amazonaws.com:/var/www/docs.yourgamestack.com/html/rest
             """
         }
     }

@@ -15,7 +15,7 @@ job("Upload docs") {
 				put ./docs/swagger.yaml
 				exit
 				EOF
---
             """
         }
+    }
 }

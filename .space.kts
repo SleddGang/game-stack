@@ -10,6 +10,9 @@ job("Upload docs") {
         shellScript {
             interpreter = "/bin/bash"
             content = """
+            	echo Installing sftp
+            	apt-get update
+                apt-get install openssh-client
                 echo Uploading swagger.yaml
                 echo "${'$'}KEY" | tr "_" "\n" > key.pem
                 chmod 0600 key.pem

@@ -16,7 +16,7 @@ job("Upload docs") {
                 echo Uploading swagger.yaml
                 echo "${'$'}KEY" | tr "_" "\n" > key.pem
                 chmod 0600 key.pem
-                scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ./key.pem /mnt/space/work/game-stack/docs/swagger.yaml ec2-user@ec2-3-212-113-177.compute-1.amazonaws.com:/var/www/docs.yourgamestack.com/html/rest
+                scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ./key.pem /mnt/space/work/game-stack/doc/swagger.yaml ec2-user@ec2-3-212-113-177.compute-1.amazonaws.com:/var/www/docs.yourgamestack.com/html/rest
             """
         }
     }

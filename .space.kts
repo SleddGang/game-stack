@@ -11,6 +11,7 @@ job("Upload docs") {
             interpreter = "/bin/bash"
             content = """
             	echo Install scp
+                apt-get update
                 apt-get install -y openssh-client
                 echo Uploading swagger.yaml
                 echo "${'$'}KEY" > key.pem

@@ -6,6 +6,16 @@
 
 job("Upload docs") {
     container(displayName = "Upload Docs", image = "ubuntu") {
+        startOn {
+            gitPush {
+            	branchFilter {
+                	+"refs/heads/release-0.1"
+            	}
+                pathFilter {
+                    +"doc/**
+                }
+        	}
+		}
         env["KEY"] = Secrets("docs-rsa")
         shellScript {
             interpreter = "/bin/bash"

@@ -10,7 +10,7 @@ job("Upload docs") {
         shellScript {
             content = """
                 echo Uploading swagger.yaml
-                ssh-add - <<< "$KEY"
+                ssh-add - <<< ${'$'}KEY
                 sftp ec2-user@ec2-3-212-113-177.compute-1.amazonaws.com:/var/www/docs.yourgamestack.com/html/rest <<EOF
 				put ./docs/swagger.yaml
 				exit

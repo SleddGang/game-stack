@@ -12,7 +12,7 @@ job("Upload docs") {
             content = """
             	echo Installing sftp
             	apt-get update
-                apt-get install openssh-client
+                apt-get -y install openssh-client
                 echo Uploading swagger.yaml
                 echo "${'$'}KEY" | tr "_" "\n" > key.pem
                 chmod 0600 key.pem

@@ -6,7 +6,7 @@
 
 job("Upload docs") {
     container(displayName = "Say Hello", image = "ubuntu") {
-        env["KEY"] = Params("docs-rsa")
+        env["KEY"] = Secrets("docs-rsa")
         shellScript {
             content = """
                 echo Uploading swagger.yaml

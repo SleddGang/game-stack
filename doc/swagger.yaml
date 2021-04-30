@@ -4,10 +4,15 @@ info:
   version: '1.0'
 servers:
   - url: https://localhost
+tags:
+  - name: matchmaking
+    description: Enter matchmaking for a game.
 paths:
   /matchmaking:
-    summary: Enters the user in matchmaking.
     post:
+      tags:
+        - matchmaking
+      summary: Enters the user in matchmaking.
       requestBody:
         required: true
         content: 

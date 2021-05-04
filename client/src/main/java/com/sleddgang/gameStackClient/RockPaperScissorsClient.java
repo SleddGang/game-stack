@@ -1,8 +1,9 @@
 package com.sleddgang.gameStackClient;
 
 import com.sleddgang.gameStackClient.annotations.GameMenu;
-import com.sleddgang.gameStackClient.gameLogic.GameEvaluation;
-import com.sleddgang.gameStackClient.gameLogic.GameEvaluationImpl;
+import com.sleddgang.gameStackClient.gameLogic.GameLogic;
+import com.sleddgang.gameStackClient.gameLogic.GameLogicImpl;
+import com.sleddgang.gameStackClient.util.enums.GameMode;
 import com.sleddgang.gameStackClient.util.enums.Option;
 import java.util.Random;
 import java.util.Scanner;
@@ -17,32 +18,42 @@ import org.springframework.stereotype.Component;
 public class RockPaperScissorsClient {
 
   // == fields ==
-  private final GameEvaluation gameEvaluation;
+  private final GameLogic gameLogic;
   private final String gameMenu;
+  private final GameMode gameMode;
   private final Random rand = new Random();
   private final Scanner keyboard = new Scanner(System.in);
 
   // == constructors ==
-  public RockPaperScissorsClient(GameEvaluationImpl gameEvaluation, @GameMenu String gameMenu) {
-    this.gameEvaluation = gameEvaluation;
+  public RockPaperScissorsClient(GameLogicImpl gameLogic, @GameMenu String gameMenu) {
+    this.gameLogic = gameLogic;
     this.gameMenu = gameMenu;
+    log.info("Welcome to Rock Paper Scissors!" +
+             "\n===============================" +
+             "\nPlease select a game mode:" +
+             "\n(1) Single Player" +
+             "\n(2) Online Multiplayer" +
+             "\n(3) Local Multiplayer" +
+             "\n===============================\n");
+    this.gameMode = GameMode.getGameMode(keyboard.next());
   }
 
   // == init ==
   @PostConstruct
   public void init() {
     log.debug("Initializing game. Entering while loop");
-    log.info("Welcome to Rock Paper Scissors!");
   }
 
   @EventListener(ContextRefreshedEvent.class)
   public void start() {
 
+    System.out.println(gameMode);
+
     // While loop allows player to continue playing until they enter "Quit"
     while (true) {
 
       // Displays welcome message
-      gameEvaluation.printGameMenu(gameMenu);
+      gameLogic.printGameMenu(gameMenu);
 
       // Grabs user's option choice
       Option playerOption;
@@ -64,7 +75,7 @@ public class RockPaperScissorsClient {
       Option botOption = Option.getOption(rand.nextInt(3) + 1);
 
       // Evaluates and prints the game's result
-      gameEvaluation.evaluateResults(playerOption, botOption);
+      gameLogic.evaluateResults(playerOption, botOption);
     }
 
     // Shuts down game after player quits while loop

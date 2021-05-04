@@ -2,7 +2,7 @@ package com.sleddgang.gameStackClient.gameLogic;
 
 import com.sleddgang.gameStackClient.util.enums.Option;
 
-public interface GameEvaluation {
+public interface GameLogic {
 
   void printGameMenu(String gameMenu);
 

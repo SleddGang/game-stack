@@ -1,14 +1,20 @@
 package com.sleddgang.gameStackClient.gameLogic;
 
 import static com.sleddgang.gameStackClient.util.TextUtil.prettifyText;
+import static com.sleddgang.gameStackClient.util.enums.GameMode.getGameMode;
 
+import com.sleddgang.gameStackClient.util.enums.GameMode;
 import com.sleddgang.gameStackClient.util.enums.Option;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 
 @Component
 @Log4j2
-public class GameEvaluationImpl implements GameEvaluation {
+public class GameLogicImpl implements GameLogic {
+
+  public GameMode selectGameMode(String mode) {
+    return getGameMode(mode);
+  }
 
   @Override
   public void printGameMenu(String gameMenu) {

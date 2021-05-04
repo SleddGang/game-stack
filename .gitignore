@@ -1,6 +1,10 @@
 *.iml
 .idea/
+.vscode/
 target/
+.project
+.classpath
+org.eclipse.*
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup

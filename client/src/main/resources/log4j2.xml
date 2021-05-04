@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="warn" name="Game-Stack">
+  <Properties>
+    <Property name="filename">client/target/logs/application.log</Property>
+    <Property name="filenamePattern">client/target/logs/application-%d{dd-MM-yyy}-%i.log</Property>
+    <Property name="filePattern">%d{yyyy-MM-dd-HH:mm:ss.SSS} [%-5p] [%c{1}] %m%n%xEx</Property>
+    <Property name="consolePattern">%n%m</Property>
+  </Properties>
+  <Appenders>
+    <Console name="CONSOLE" target="SYSTEM_OUT" follow="true">
+      <LevelRangeFilter minLevel="INFO" maxLevel="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
+      <PatternLayout pattern="${consolePattern}"/>
+    </Console>
+
+    <RollingFile name="LOGFILE" fileName="${filename}" filePattern="${filenamePattern}">
+      <LevelRangeFilter minLevel="INFO" maxLevel="DEBUG" onMatch="ACCEPT" onMismatch="DENY"/>
+      <Patternlayout pattern="${filePattern}"/>
+      <Policies>
+        <OnStartupTriggeringPolicy/>
+      </Policies>
+      <DefaultRolloverStrategy max="10"/>
+    </RollingFile>
+  </Appenders>
+
+  <Loggers>
+    <Logger name="com.sleddgang.gameStackClient" additivity="false">
+      <AppenderRef ref="LOGFILE"/>
+      <AppenderRef ref="CONSOLE"/>
+    </Logger>
+
+    <Root level="all">
+      <AppenderRef ref="CONSOLE"/>
+    </Root>
+  </Loggers>
+</Configuration>

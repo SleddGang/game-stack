@@ -11,7 +11,8 @@ import lombok.extern.log4j.Log4j2;
 public enum GameMode {
   SINGLE_PLAYER("Single Player", 1),
   ONLINE_MULTIPLAYER("Online Multiplayer", 2),
-  LOCAL_MULTIPLAYER("Local Multiplayer", 3);
+  LOCAL_MULTIPLAYER("Local Multiplayer", 3),
+  QUIT("Quit", 4);
 
   private final String label;
   private final int value;

@@ -1,9 +1,9 @@
 package com.sleddgang.gameStackClient.gameLogic.gameModeLogic;
 
-import java.util.Random;
+import com.sleddgang.gameStackClient.gameLogic.MessageGenerator;
+import com.sleddgang.gameStackClient.gameLogic.MessageGeneratorImpl;
 import java.util.Scanner;
 
-import com.sleddgang.gameStackClient.annotations.GameMenu;
 import com.sleddgang.gameStackClient.gameLogic.GameLogic;
 import com.sleddgang.gameStackClient.gameLogic.GameLogicImpl;
 import com.sleddgang.gameStackClient.util.enums.Option;
@@ -16,42 +16,41 @@ import lombok.extern.log4j.Log4j2;
 @Component
 public class SinglePlayerGame {
 
+  // == fields ==
   private final GameLogic gameLogic;
-  private final String gameMenu;
-  private final Random rand = new Random();
+  private final MessageGenerator messageGenerator;
 
-  public SinglePlayerGame(GameLogicImpl gameLogic, @GameMenu String gameMenu) {
+  // == constructors ==
+  public SinglePlayerGame(GameLogicImpl gameLogic, MessageGeneratorImpl messageGenerator) {
     this.gameLogic = gameLogic;
-    this.gameMenu = gameMenu;
+    this.messageGenerator = messageGenerator;
   }
 
+  // == public methods ==
   public void playSinglePlayerGame(Scanner keyboard) {
 
+    // While loop allows the player to play multiple games in a row
     while (true) {
-      // Displays welcome message
-      gameLogic.printGameMenu(gameMenu);
+      // Displays Game Menu
+      messageGenerator.printGameMenu();
 
-      // Grabs user's option choice
-      Option playerOption;
-      try {
-        playerOption = Option.getOption(keyboard.nextLine());
-      } catch (IllegalArgumentException e) {
-        log.info("Please enter a valid option from the list");
-        log.debug(e);
+      // Sets the user's choice
+      // If the player enters an invalid option, it resets the loop
+      if (!gameLogic.setPlayerOption(keyboard.nextLine())) {
         continue;
       }
 
-      // Breaks out of while loop if player enters "Quit"
-      if (playerOption.equals(Option.QUIT)) {
-        log.debug("Exiting game");
+      // Breaks out of while loop if player enters "Main Menu"
+      if (GameLogicImpl.playerOption.equals(Option.MAIN_MENU)) {
+        log.debug("Returning to main menu");
         break;
       }
 
       // Sets the bot's option
-      Option botOption = Option.getOption(rand.nextInt(3) + 1);
+      gameLogic.setBotOption();
 
       // Evaluates and prints the game's result
-      gameLogic.evaluateResults(playerOption, botOption);
+      gameLogic.evaluateResults(GameLogicImpl.playerOption, GameLogicImpl.botOption);
     }
   }
 

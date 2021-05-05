@@ -7,6 +7,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 public class Main {
 
   public static void main(String[] args) {
+
+    // Initializes Spring context container
     ConfigurableApplicationContext context = new AnnotationConfigApplicationContext(
         ClientConfig.class);
 

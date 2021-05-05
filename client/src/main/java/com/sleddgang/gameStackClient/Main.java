@@ -6,11 +6,11 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 public class Main {
 
-    public static void main(String[] args) {
-        ConfigurableApplicationContext context = new AnnotationConfigApplicationContext(
-            ClientConfig.class);
+  public static void main(String[] args) {
+    ConfigurableApplicationContext context = new AnnotationConfigApplicationContext(
+        ClientConfig.class);
 
-        context.close();
-    }
+    context.close();
+  }
 
 }

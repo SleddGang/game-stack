@@ -25,8 +25,10 @@ public enum Option {
 
   public static Option getOption(String option) {
     log.debug("Player's option -- {}", option);
-    Option choice = EnumSet.allOf(Option.class).stream().filter(o -> o.label.equalsIgnoreCase(option)).
-        findFirst().orElseThrow(() -> new IllegalArgumentException(format("Invalid option '%s' entered.", option)));
+    Option choice = EnumSet.allOf(Option.class).stream()
+        .filter(o -> o.label.equalsIgnoreCase(option)).
+            findFirst().orElseThrow(
+            () -> new IllegalArgumentException(format("Invalid option '%s' entered.", option)));
     if (!choice.equals(QUIT)) {
       log.info("You used {}", choice.label);
     }

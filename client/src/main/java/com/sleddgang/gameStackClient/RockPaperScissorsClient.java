@@ -40,33 +40,33 @@ public class RockPaperScissorsClient {
     while (gameContinue) {
 
       log.info("Welcome to Rock Paper Scissors!" +
-             "\n===============================" +
-             "\nPlease select a game mode:" +
-             "\n(1) Single Player" +
-             "\n(2) Online Multiplayer" +
-             "\n(3) Local Multiplayer" +
-             "\n(4) Quit" +
-             "\n===============================\n");
+          "\n===============================" +
+          "\nPlease select a game mode:" +
+          "\n(1) Single Player" +
+          "\n(2) Online Multiplayer" +
+          "\n(3) Local Multiplayer" +
+          "\n(4) Quit" +
+          "\n===============================\n");
 
-    if (!gameSetup.setGameMode(keyboard.nextLine())) {
+      if (!gameSetup.setGameMode(keyboard.nextLine())) {
         continue;
-    }
+      }
 
-    switch (GameSetupImpl.gameMode) {
-      case SINGLE_PLAYER:
-        singlePlayerGame.playSinglePlayerGame(keyboard);
-        break;
-      case ONLINE_MULTIPLAYER:
-        singlePlayerGame.playSinglePlayerGame(keyboard);
-        break;
-      case LOCAL_MULTIPLAYER:
-        singlePlayerGame.playSinglePlayerGame(keyboard);
-        break;
-      case QUIT:
-        gameContinue = false;
-        break;
-    }
- 
+      switch (GameSetupImpl.gameMode) {
+        case SINGLE_PLAYER:
+          singlePlayerGame.playSinglePlayerGame(keyboard);
+          break;
+        case ONLINE_MULTIPLAYER:
+          singlePlayerGame.playSinglePlayerGame(keyboard);
+          break;
+        case LOCAL_MULTIPLAYER:
+          singlePlayerGame.playSinglePlayerGame(keyboard);
+          break;
+        case QUIT:
+          gameContinue = false;
+          break;
+      }
+
     }
 
     // Shuts down game after player quits while loop

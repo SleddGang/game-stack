@@ -24,7 +24,9 @@ public enum GameMode {
 
   public static GameMode getGameMode(String mode) {
     log.debug("Player's game mode -- {}", mode);
-    return EnumSet.allOf(GameMode.class).stream().filter(o -> o.label.equalsIgnoreCase(mode) || Integer.toString(o.value).equalsIgnoreCase(mode)).
-        findFirst().orElseThrow(() -> new IllegalArgumentException(format("Invalid mode '%s' entered.", mode)));
+    return EnumSet.allOf(GameMode.class).stream().filter(
+        o -> o.label.equalsIgnoreCase(mode) || Integer.toString(o.value).equalsIgnoreCase(mode)).
+        findFirst().orElseThrow(
+        () -> new IllegalArgumentException(format("Invalid mode '%s' entered.", mode)));
   }
 }

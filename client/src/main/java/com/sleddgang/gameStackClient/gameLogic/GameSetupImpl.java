@@ -5,12 +5,13 @@ import java.util.Scanner;
 import org.springframework.stereotype.Component;
 import lombok.extern.log4j.Log4j2;
 
+import static com.sleddgang.gameStackClient.config.GameValues.gameMode;
+
 @Component
 @Log4j2
 public class GameSetupImpl implements GameSetup {
 
   // == fields ==
-  public static GameMode gameMode;
   public final MessageGenerator messageGenerator;
 
   // == constructors ==

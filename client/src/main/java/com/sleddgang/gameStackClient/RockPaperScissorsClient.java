@@ -12,6 +12,8 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import static com.sleddgang.gameStackClient.config.GameValues.gameMode;
+
 @Component
 @Log4j2
 public class RockPaperScissorsClient {
@@ -56,7 +58,7 @@ public class RockPaperScissorsClient {
       }
 
       // Routes the player to the correct game mode code
-      switch (GameSetupImpl.gameMode) {
+      switch (gameMode) {
         case SINGLE_PLAYER:
           singlePlayerGame.playSinglePlayerGame(keyboard);
           break;

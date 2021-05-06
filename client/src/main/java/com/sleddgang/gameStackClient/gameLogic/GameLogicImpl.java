@@ -5,13 +5,16 @@ import java.util.Random;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 
+import static com.sleddgang.gameStackClient.config.GameValues.playerOneOption;
+import static com.sleddgang.gameStackClient.config.GameValues.botOption;
+
 @Component
 @Log4j2
 public class GameLogicImpl implements GameLogic {
 
   // == fields ==
-  public static Option playerOption;
-  public static Option botOption;
+  // public static Option playerOneOption;
+  // public static Option botOption;
   private final Random rand = new Random();
 
   private final MessageGenerator messageGenerator;
@@ -23,16 +26,16 @@ public class GameLogicImpl implements GameLogic {
 
   // == public methods ==
   @Override
-  public boolean setPlayerOption(String option) {
+  public boolean setPlayerOneOption(String option) {
     try {
-      playerOption = Option.getOption(option);
+      playerOneOption = Option.getOption(option);
     } catch (IllegalArgumentException e) {
       log.debug(e);
       messageGenerator.printInvalidSelectionMessage("option");
       return false;
     }
-    if (!playerOption.equals(Option.MAIN_MENU)) {
-      messageGenerator.printSelectionMessage("You", playerOption.getLabel());
+    if (!playerOneOption.equals(Option.MAIN_MENU)) {
+      messageGenerator.printSelectionMessage("You", playerOneOption.getLabel());
     }
     return true;
   }
@@ -44,21 +47,21 @@ public class GameLogicImpl implements GameLogic {
   }
 
   @Override
-  public void evaluateResults(Option playerOption, Option botOption) {
-    log.debug("Player Chose -- {}. Bot Chose -- {}", playerOption, botOption);
+  public void evaluateResults(Option playerOneOption, Option botOption) {
+    log.debug("Player Chose -- {}. Bot Chose -- {}", playerOneOption, botOption);
     String result;
-    if (playerOption.equals(botOption)) {
+    if (playerOneOption.equals(botOption)) {
       result = "tied.";
     } else {
-      result = didPlayerWin(playerOption, botOption) ? "won!" : "lost :(";
+      result = didPlayerWin(playerOneOption, botOption) ? "won!" : "lost :(";
     }
     messageGenerator.printResultMessage(result);
   }
 
   // == private methods ==
-  private boolean didPlayerWin(Option playerOption, Option botOption) {
-    return (playerOption.equals(Option.ROCK) && botOption.equals(Option.SCISSORS))
-        || (playerOption.equals(Option.PAPER) && botOption.equals(Option.ROCK))
-        || (playerOption.equals(Option.SCISSORS) && botOption.equals(Option.PAPER));
+  private boolean didPlayerWin(Option playerOneOption, Option botOption) {
+    return (playerOneOption.equals(Option.ROCK) && botOption.equals(Option.SCISSORS))
+        || (playerOneOption.equals(Option.PAPER) && botOption.equals(Option.ROCK))
+        || (playerOneOption.equals(Option.SCISSORS) && botOption.equals(Option.PAPER));
   }
 }

@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 
 import lombok.extern.log4j.Log4j2;
 
+import static com.sleddgang.gameStackClient.config.GameValues.playerOneOption;
+import static com.sleddgang.gameStackClient.config.GameValues.botOption;
+
 @Log4j2
 @Component
 public class SinglePlayerGame {
@@ -36,12 +39,12 @@ public class SinglePlayerGame {
 
       // Sets the user's choice
       // If the player enters an invalid option, it resets the loop
-      if (!gameLogic.setPlayerOption(keyboard.nextLine())) {
+      if (!gameLogic.setPlayerOneOption(keyboard.nextLine())) {
         continue;
       }
 
       // Breaks out of while loop if player enters "Main Menu"
-      if (GameLogicImpl.playerOption.equals(Option.MAIN_MENU)) {
+      if (playerOneOption.equals(Option.MAIN_MENU)) {
         log.debug("Returning to main menu");
         break;
       }
@@ -50,7 +53,7 @@ public class SinglePlayerGame {
       gameLogic.setBotOption();
 
       // Evaluates and prints the game's result
-      gameLogic.evaluateResults(GameLogicImpl.playerOption, GameLogicImpl.botOption);
+      gameLogic.evaluateResults(playerOneOption, botOption);
     }
   }
 

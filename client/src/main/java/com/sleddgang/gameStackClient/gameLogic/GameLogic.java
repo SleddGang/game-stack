@@ -4,7 +4,7 @@ import com.sleddgang.gameStackClient.util.enums.Option;
 
 public interface GameLogic {
 
-  boolean setPlayerOption(String option);
+  boolean setPlayerOneOption(String option);
 
   void setBotOption();
 

@@ -4,6 +4,7 @@ import com.sleddgang.gameStackClient.gameLogic.GameSetup;
 import com.sleddgang.gameStackClient.gameLogic.GameSetupImpl;
 import com.sleddgang.gameStackClient.gameLogic.MessageGenerator;
 import com.sleddgang.gameStackClient.gameLogic.MessageGeneratorImpl;
+import com.sleddgang.gameStackClient.gameLogic.gameModeLogic.LocalMultiplayerGame;
 import com.sleddgang.gameStackClient.gameLogic.gameModeLogic.SinglePlayerGame;
 import java.util.Scanner;
 import javax.annotation.PostConstruct;
@@ -21,6 +22,7 @@ public class RockPaperScissorsClient {
   // == fields ==
   private final GameSetup gameSetup;
   private final SinglePlayerGame singlePlayerGame;
+  private final LocalMultiplayerGame localMultiplayerGame;
   private final MessageGenerator messageGenerator;
   private final Scanner keyboard = new Scanner(System.in);
 
@@ -28,9 +30,11 @@ public class RockPaperScissorsClient {
 
   // == constructors ==
   public RockPaperScissorsClient(GameSetupImpl gameSetup, SinglePlayerGame singlePlayerGame,
+      LocalMultiplayerGame localMultiplayerGame,
       MessageGeneratorImpl messageGenerator) {
     this.gameSetup = gameSetup;
     this.singlePlayerGame = singlePlayerGame;
+    this.localMultiplayerGame = localMultiplayerGame;
     this.messageGenerator = messageGenerator;
   }
 
@@ -66,7 +70,7 @@ public class RockPaperScissorsClient {
           // TODO: Implement online multiplayer code
           break;
         case LOCAL_MULTIPLAYER:
-          // TODO: Implement local multiplayer code
+          localMultiplayerGame.playLocalMultiplayerGame(keyboard);
           break;
         case QUIT:
           gameContinue = false;

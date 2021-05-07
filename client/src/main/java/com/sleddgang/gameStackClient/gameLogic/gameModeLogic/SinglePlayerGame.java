@@ -46,6 +46,7 @@ public class SinglePlayerGame {
       // Breaks out of while loop if player enters "Main Menu"
       if (playerOneOption.equals(Option.MAIN_MENU)) {
         log.debug("Returning to main menu");
+        gameLogic.refreshValues();
         break;
       }
 
@@ -54,6 +55,7 @@ public class SinglePlayerGame {
 
       // Evaluates and prints the game's result
       gameLogic.evaluateResults(playerOneOption, botOption);
+      gameLogic.refreshValues();
     }
   }
 

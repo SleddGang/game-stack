@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackClient.gameLogic;
+package com.sleddgang.gameStackClient.game;
 
 import com.sleddgang.gameStackClient.annotations.GameMenu;
 import com.sleddgang.gameStackClient.annotations.GoodbyeMessage;
@@ -56,8 +56,12 @@ public class MessageGeneratorImpl implements MessageGenerator {
   }
 
   @Override
-  public void printGameMenu() {
-    log.info("{}\n", equalsTextWrapper(gameMenu));
+  public void printGameMenu(String player) {
+    if (!player.equals("")) {
+      player = player + ", ";
+    }
+    String extraBuffer = new StringBuilder("-".repeat(player.length())).toString();
+    log.info("{}\n", equalsTextWrapper(player + gameMenu.replace(":\n", ":\n" + extraBuffer)));
   }
 
   @Override

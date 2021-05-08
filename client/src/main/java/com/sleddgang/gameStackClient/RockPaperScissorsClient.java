@@ -1,13 +1,15 @@
 package com.sleddgang.gameStackClient;
 
-import com.sleddgang.gameStackClient.gameLogic.GameSetup;
-import com.sleddgang.gameStackClient.gameLogic.GameSetupImpl;
-import com.sleddgang.gameStackClient.gameLogic.MessageGenerator;
-import com.sleddgang.gameStackClient.gameLogic.MessageGeneratorImpl;
-import com.sleddgang.gameStackClient.gameLogic.gameModeLogic.LocalMultiplayerGame;
-import com.sleddgang.gameStackClient.gameLogic.gameModeLogic.SinglePlayerGame;
 import java.util.Scanner;
 import javax.annotation.PostConstruct;
+
+import com.sleddgang.gameStackClient.game.GameSetup;
+import com.sleddgang.gameStackClient.game.GameSetupImpl;
+import com.sleddgang.gameStackClient.game.MessageGenerator;
+import com.sleddgang.gameStackClient.game.MessageGeneratorImpl;
+import com.sleddgang.gameStackClient.game.gameModes.LocalMultiplayerGame;
+import com.sleddgang.gameStackClient.game.gameModes.SinglePlayerGame;
+
 import lombok.extern.log4j.Log4j2;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;

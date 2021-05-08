@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackClient.gameLogic;
+package com.sleddgang.gameStackClient.game;
 
 import com.sleddgang.gameStackClient.util.enums.GameMode;
 import java.util.Scanner;

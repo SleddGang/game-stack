@@ -1,11 +1,10 @@
-package com.sleddgang.gameStackClient.gameLogic.gameModeLogic;
+package com.sleddgang.gameStackClient.game.gameModes;
 
-import com.sleddgang.gameStackClient.gameLogic.MessageGenerator;
-import com.sleddgang.gameStackClient.gameLogic.MessageGeneratorImpl;
 import java.util.Scanner;
 
-import com.sleddgang.gameStackClient.gameLogic.GameLogic;
-import com.sleddgang.gameStackClient.gameLogic.GameLogicImpl;
+import com.sleddgang.gameStackClient.game.MessageGenerator;
+import com.sleddgang.gameStackClient.game.MessageGeneratorImpl;
+import com.sleddgang.gameStackClient.game.gameLogic.SinglePlayerLogic;
 import com.sleddgang.gameStackClient.util.enums.Option;
 
 import org.springframework.stereotype.Component;
@@ -20,12 +19,12 @@ import static com.sleddgang.gameStackClient.config.GameValues.botOption;
 public class SinglePlayerGame {
 
   // == fields ==
-  private final GameLogic gameLogic;
+  private final SinglePlayerLogic singlePlayerLogic;
   private final MessageGenerator messageGenerator;
 
   // == constructors ==
-  public SinglePlayerGame(GameLogicImpl gameLogic, MessageGeneratorImpl messageGenerator) {
-    this.gameLogic = gameLogic;
+  public SinglePlayerGame(SinglePlayerLogic singlePlayerLogic, MessageGeneratorImpl messageGenerator) {
+    this.singlePlayerLogic = singlePlayerLogic;
     this.messageGenerator = messageGenerator;
   }
 
@@ -37,25 +36,25 @@ public class SinglePlayerGame {
       // Displays Game Menu
       messageGenerator.printGameMenu();
 
-      // Sets the user's choice
+      // Sets the player's choice
       // If the player enters an invalid option, it resets the loop
-      if (!gameLogic.setPlayerOneOption(keyboard.nextLine())) {
-        continue;
+      if (!singlePlayerLogic.setPlayerOption("Player One", keyboard.nextLine())) {
+          continue;
       }
 
       // Breaks out of while loop if player enters "Main Menu"
       if (playerOneOption.equals(Option.MAIN_MENU)) {
         log.debug("Returning to main menu");
-        gameLogic.refreshValues();
+        singlePlayerLogic.refreshValues();
         break;
       }
 
       // Sets the bot's option
-      gameLogic.setBotOption();
+      singlePlayerLogic.setBotOption();
 
       // Evaluates and prints the game's result
-      gameLogic.evaluateResults(playerOneOption, botOption);
-      gameLogic.refreshValues();
+      singlePlayerLogic.evaluateResults(playerOneOption, botOption);
+      singlePlayerLogic.refreshValues();
     }
   }
 

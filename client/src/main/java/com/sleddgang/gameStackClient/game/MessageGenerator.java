@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackClient.gameLogic;
+package com.sleddgang.gameStackClient.game;
 
 public interface MessageGenerator {
 
@@ -6,7 +6,11 @@ public interface MessageGenerator {
 
   void printMainMenu();
 
-  void printGameMenu();
+  void printGameMenu(String player);
+
+  default void printGameMenu() {
+    printGameMenu("");
+  }
 
   void printGoodbyeMessage();
 

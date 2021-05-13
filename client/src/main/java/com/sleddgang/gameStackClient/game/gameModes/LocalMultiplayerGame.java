@@ -32,9 +32,10 @@ public class LocalMultiplayerGame {
   // == public methods ==
   public void playLocalMultiplayerGame(Scanner keyboard) {
 
-    EraserThread et = new EraserThread();
-      Thread mask = new Thread(et);
-      mask.start();
+    // CODE FOR STARTING INPUT MASKING
+    // EraserThread et = new EraserThread();
+    // Thread mask = new Thread(et);
+    // mask.start();
     while(true) {      
 
       // Sets the user's choice
@@ -45,7 +46,6 @@ public class LocalMultiplayerGame {
         if (!localLogic.setPlayerOption("Player One", keyboard.nextLine())) {
           continue;
         }
-        // et.stopMasking();
       }
 
       // Breaks out of while loop if player enters "Main Menu"
@@ -60,7 +60,6 @@ public class LocalMultiplayerGame {
 
       // Sets the user's choice
       // If the player enters an invalid option, it resets the loop
-      // mask.resume();
       if (!localLogic.setPlayerOption("Player Two", keyboard.nextLine())) {
         continue;
       }
@@ -76,32 +75,34 @@ public class LocalMultiplayerGame {
       localLogic.evaluateResults(playerOneOption, playerTwoOption);
       localLogic.refreshValues();
     }
-    et.stopMasking();
+    // ENDS INPUT MASKING
+    // et.stopMasking();
 
   }
 
-  private class EraserThread implements Runnable {
-    private boolean stop;
+  // CODE REQUIRED FOR MASKING INPUT IN TERMINALS (Does not work in IDE terminal emulators)
+//   private class EraserThread implements Runnable {
+//     private boolean stop;
  
-    public EraserThread() {
-    }
+//     public EraserThread() {
+//     }
  
-    public void run () {
-       stop = true;
-       while (stop) {
-          System.out.print("\010 ");
-      try {
-         Thread.currentThread();
-        Thread.sleep(1);
-          } catch(InterruptedException ie) {
-             ie.printStackTrace();
-          }
-       }
-    }
+//     public void run () {
+//        stop = true;
+//        while (stop) {
+//           System.out.print("\010 ");
+//       try {
+//          Thread.currentThread();
+//         Thread.sleep(1);
+//           } catch(InterruptedException ie) {
+//              ie.printStackTrace();
+//           }
+//        }
+//     }
 
-    public void stopMasking() {
-       this.stop = false;
-    }
- }
+//     public void stopMasking() {
+//        this.stop = false;
+//     }
+//  }
     
 }

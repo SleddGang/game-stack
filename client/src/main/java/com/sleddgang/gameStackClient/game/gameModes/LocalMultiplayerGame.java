@@ -32,10 +32,6 @@ public class LocalMultiplayerGame {
   // == public methods ==
   public void playLocalMultiplayerGame(Scanner keyboard) {
 
-    // CODE FOR STARTING INPUT MASKING
-    // EraserThread et = new EraserThread();
-    // Thread mask = new Thread(et);
-    // mask.start();
     while(true) {      
 
       // Sets the user's choice
@@ -75,34 +71,7 @@ public class LocalMultiplayerGame {
       localLogic.evaluateResults(playerOneOption, playerTwoOption);
       localLogic.refreshValues();
     }
-    // ENDS INPUT MASKING
-    // et.stopMasking();
 
   }
-
-  // CODE REQUIRED FOR MASKING INPUT IN TERMINALS (Does not work in IDE terminal emulators)
-//   private class EraserThread implements Runnable {
-//     private boolean stop;
- 
-//     public EraserThread() {
-//     }
- 
-//     public void run () {
-//        stop = true;
-//        while (stop) {
-//           System.out.print("\010 ");
-//       try {
-//          Thread.currentThread();
-//         Thread.sleep(1);
-//           } catch(InterruptedException ie) {
-//              ie.printStackTrace();
-//           }
-//        }
-//     }
-
-//     public void stopMasking() {
-//        this.stop = false;
-//     }
-//  }
     
 }

@@ -1,23 +1,26 @@
 package com.sleddgang.gameStackGameServer.config;
 
+import com.sleddgang.gameStackGameServer.handler.GameServerHandler;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.simp.config.MessageBrokerRegistry;
-import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
-import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
-import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
+import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
 @Configuration
-@EnableWebSocketMessageBroker
-public class GameServerConfig implements WebSocketMessageBrokerConfigurer {
+@EnableWebSocket
+public class GameServerConfig implements WebSocketConfigurer {
+
+    private static final String CHAT_ENDPOINT = "/chat";
 
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic");
-        config.setApplicationDestinationPrefixes("/app");
+    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        registry.addHandler(getGameServerWebsocketHandler(), CHAT_ENDPOINT).setAllowedOrigins("*");
     }
 
-    @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/tutorialspoint-websocket").withSockJS();
+    @Bean
+    public WebSocketHandler getGameServerWebsocketHandler() {
+        return new GameServerHandler();
     }
 }

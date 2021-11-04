@@ -16,11 +16,11 @@ public class GameServerConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(getGameServerWebsocketHandler(), CHAT_ENDPOINT).setAllowedOrigins("*");
+        registry.addHandler(getGameServerWebSocketHandler(), CHAT_ENDPOINT).setAllowedOrigins("*");
     }
 
     @Bean
-    public WebSocketHandler getGameServerWebsocketHandler() {
+    public WebSocketHandler getGameServerWebSocketHandler() {
         return new GameServerHandler();
     }
 }

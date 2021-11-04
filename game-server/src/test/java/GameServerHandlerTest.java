@@ -4,14 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.util.Assert;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.client.WebSocketClient;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.sleddgang.gameStackGameServer.GameServerApplication;
 
-import javax.websocket.ClientEndpoint;
-import javax.websocket.OnOpen;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
@@ -21,61 +20,44 @@ import java.util.concurrent.TimeUnit;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = GameServerApplication.class)
 class GameServerHandlerTest {
-    private ObjectMapper objectMapper = new ObjectMapper();
 
     @LocalServerPort
     private Integer port;
 
     private WebSocketClient client;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     public void setup() {
+        this.objectMapper = new ObjectMapper();
         this.client = new StandardWebSocketClient();
     }
 
     @Test
     public void verifyPing() throws Exception{
-        long reqid = Long.MAX_VALUE;
-        URI uri = new URI("ws://localhost:8080/game");
-        BlockingQueue<String> blockingQueue = new ArrayBlockingQueue(1);
-//        WebSocketHandler handler = new WebSocketHandler() {
-//            @Override
-//            public void afterConnectionEstablished(WebSocketSession webSocketSession) throws Exception {
-//
-//            }
-//
-//            @Override
-//            public void handleMessage(WebSocketSession webSocketSession, WebSocketMessage<?> webSocketMessage) throws Exception {
-//
-//            }
-//
-//            @Override
-//            public void handleTransportError(WebSocketSession webSocketSession, Throwable throwable) throws Exception {
-//
-//            }
-//
-//            @Override
-//            public void afterConnectionClosed(WebSocketSession webSocketSession, CloseStatus closeStatus) throws Exception {
-//
-//            }
-//
-//            @Override
-//            public boolean supportsPartialMessages() {
-//                return false;
-//            }
-//        };
+        Random rand = new Random();
+        long reqid = rand.nextLong();
+        URI uri = new URI(String.format("ws://localhost:%d/game", this.port));
+        BlockingQueue<String> blockingQueue = new ArrayBlockingQueue(1);    //Used to send messages out of the handler.
         TextWebSocketHandler handler = new TextWebSocketHandler() {
             @Override
             protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+                //Encode message as a string and add it to the blockingQueue.
                 String m = new String(message.asBytes(), StandardCharsets.UTF_8);
                 System.out.println(m);
                 blockingQueue.add(m);
             }
         };
         WebSocketSession session = client.doHandshake(handler, null, uri).get(1, TimeUnit.SECONDS);
-        GameServerMessage message = new GameServerMessage("ping", 1);
-        TextMessage socketMessage = new TextMessage(objectMapper.writeValueAsBytes(message));
+
+        //Create ping message to send to the server using the random reqid and send it to the server.
+        GameServerMessage message = new GameServerMessage("ping", reqid);
+        TextMessage socketMessage = new TextMessage(this.objectMapper.writeValueAsBytes(message));
         session.sendMessage(socketMessage);
-        Assert.isTrue(blockingQueue.poll(1, TimeUnit.SECONDS).equals("{\"event\":\"pong\",\"reqid\":1}"));
+
+        //Get the response from the blockingQueue and check it is correct.
+        GameServerMessage response = this.objectMapper.readValue(blockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        Assert.isTrue(response.event.equals("pong"), "The response event must be pong.");
+        Assert.isTrue(response.reqid == reqid, "The response reqid must be the same as the request reqid.");
     }
 }

@@ -10,9 +10,13 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.sleddgang.gameStackGameServer.GameServerApplication;
 
+import javax.websocket.ClientEndpoint;
+import javax.websocket.OnOpen;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = GameServerApplication.class)
@@ -33,6 +37,7 @@ class GameServerHandlerTest {
     public void verifyPing() throws Exception{
         long reqid = Long.MAX_VALUE;
         URI uri = new URI("ws://localhost:8080/game");
+        BlockingQueue<String> blockingQueue = new ArrayBlockingQueue(1);
 //        WebSocketHandler handler = new WebSocketHandler() {
 //            @Override
 //            public void afterConnectionEstablished(WebSocketSession webSocketSession) throws Exception {
@@ -64,12 +69,13 @@ class GameServerHandlerTest {
             protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
                 String m = new String(message.asBytes(), StandardCharsets.UTF_8);
                 System.out.println(m);
-                Assert.isTrue(m.equals("{\"event\":\"pong\",\"reqid\":1}"));
+                blockingQueue.add(m);
             }
         };
         WebSocketSession session = client.doHandshake(handler, null, uri).get(1, TimeUnit.SECONDS);
-        GameServerMessage message = new GameServerMessage("ping", reqid);
-        WebSocketMessage socketMessage = new TextMessage(objectMapper.writeValueAsBytes(message));
-
+        GameServerMessage message = new GameServerMessage("ping", 1);
+        TextMessage socketMessage = new TextMessage(objectMapper.writeValueAsBytes(message));
+        session.sendMessage(socketMessage);
+        Assert.isTrue(blockingQueue.poll(1, TimeUnit.SECONDS).equals("{\"event\":\"pong\",\"reqid\":1}"));
     }
 }

@@ -12,7 +12,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class GameServerConfig implements WebSocketConfigurer {
 
-    private static final String CHAT_ENDPOINT = "/chat";
+    private static final String CHAT_ENDPOINT = "/game";
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {

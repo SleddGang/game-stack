@@ -1,5 +1,8 @@
 package com.sleddgang.gameStackGameServer.handler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sleddgang.gameStackGameServer.schemas.GameServerMessage;
+import com.sleddgang.gameStackGameServer.schemas.PongMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -10,6 +13,11 @@ import java.util.List;
 
 public class GameServerHandler extends TextWebSocketHandler {
     private final List<WebSocketSession> webSocketSessions = new ArrayList<>();
+    private ObjectMapper objectMapper;
+
+    public GameServerHandler() {
+        this.objectMapper = new ObjectMapper();
+    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -17,9 +25,10 @@ public class GameServerHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        for (WebSocketSession webSocketSession: webSocketSessions) {
-            webSocketSession.sendMessage(message);
+    protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws Exception {
+        GameServerMessage message = this.objectMapper.readValue(textMessage.asBytes(), GameServerMessage.class);
+        if (message.event.equals("ping")) {
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new PongMessage(message.reqid))));
         }
     }
 

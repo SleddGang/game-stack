@@ -13,12 +13,13 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @Type(value = PongEvent.class, name = "pong"),
         @Type(value = PingEvent.class, name = "ping"),
         @Type(value = ErrorEvent.class, name = "error"),
+        @Type(value = JoinEvent.class, name = "join"),
+        @Type(value = JoinResponse.class, name = "join_response"),
+        @Type(value = CreateGameEvent.class, name = "create_game"),
 })
 public class GameServerEvent {
-//    public String type;
 
     public GameServerEvent(String type) {
-//        this.type = type;
     }
 
     public GameServerEvent() {

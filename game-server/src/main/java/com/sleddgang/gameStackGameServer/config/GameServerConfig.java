@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -24,6 +25,9 @@ public class GameServerConfig implements WebSocketConfigurer {
 
     @Autowired
     private ApplicationContext appContext;
+
+    @Autowired
+    Environment env;
 
 //    private final BlockingQueue<MatchmakingMessage> queue = new LinkedBlockingQueue<>();
 
@@ -46,8 +50,12 @@ public class GameServerConfig implements WebSocketConfigurer {
         return new MatchmakingHandler(appContext);
     }
 
-    @Bean
-    public BlockingQueue<Match> getMatchmakingMessageQueue() {
+    @Bean(name = "matchmakingMessageQueue")
+    public BlockingQueue<Integer> getMatchmakingMessageQueue() {
+        return new LinkedBlockingQueue<>();
+    }
+    @Bean(name = "gameMessageQueue")
+    public BlockingQueue<Match> getGameMessageQueue() {
         return new LinkedBlockingQueue<>();
     }
 }

@@ -16,11 +16,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @Type(value = JoinEvent.class, name = "join"),
         @Type(value = JoinResponse.class, name = "join_response"),
         @Type(value = CreateGameEvent.class, name = "create_game"),
+        @Type(value = ServerStatusEvent.class, name = "server_status"),
 })
 public class GameServerEvent {
-
-    public GameServerEvent(String type) {
-    }
 
     public GameServerEvent() {
     }

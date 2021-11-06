@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.util.Assert;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.client.WebSocketClient;
@@ -19,6 +20,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+@TestPropertySource(properties = {"ID = test1", "SLOTS = 2"})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = GameServerApplication.class)
 class GameServerHandlerTest {
 
@@ -86,7 +88,7 @@ class GameServerHandlerTest {
         URI uri = new URI(String.format("ws://localhost:%d/game", this.port));
         BlockingQueue<String> blockingQueue = new ArrayBlockingQueue(1);    //Used to send messages out of the handler.
 
-        WebSocketSession session = sendMessage(uri, new GameServerMessage(new GameServerEvent("unknown"), reqid), message -> {
+        WebSocketSession session = sendMessage(uri, new GameServerMessage(new GameServerEvent(), reqid), message -> {
             System.out.println(message);
             blockingQueue.add(message);
         });
@@ -142,14 +144,21 @@ class GameServerHandlerTest {
         long repeatReqid = reqid + 1;
         URI gameUri = new URI(String.format("ws://localhost:%d/game", this.port));
         URI matchUri = new URI(String.format("ws://localhost:%d/matchmaking", this.port));
-        BlockingQueue<String> blockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+        BlockingQueue<String> gameBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+        BlockingQueue<String> matchBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
 
-        TextWebSocketHandler handler = createHandler(message -> {
+        TextWebSocketHandler gameHandler = createHandler(message -> {
             System.out.println(message);
-            blockingQueue.add(message);
+            gameBlockingQueue.add(message);
         });
-        WebSocketSession gameSession = client.doHandshake(handler, null, gameUri).get(1, TimeUnit.SECONDS);
-        WebSocketSession matchSession = matchClient.doHandshake(handler, null, matchUri).get(1, TimeUnit.SECONDS);
+
+        TextWebSocketHandler matchHandler = createHandler(message -> {
+            System.out.println(message);
+            matchBlockingQueue.add(message);
+        });
+
+        WebSocketSession gameSession = client.doHandshake(gameHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession matchSession = matchClient.doHandshake(matchHandler, null, matchUri).get(1, TimeUnit.SECONDS);
 
         TextMessage gameMessage = new TextMessage(this.objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), reqid)));
         TextMessage repeatGameMessage = new TextMessage(this.objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), repeatReqid)));
@@ -159,20 +168,27 @@ class GameServerHandlerTest {
         gameSession.sendMessage(gameMessage);
 
         //Get the response from the blockingQueue and check it is correct.
-        GameServerMessage response = this.objectMapper.readValue(blockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
-        Assert.isTrue(response.event instanceof JoinResponse, "The response event must be a JoinResponse.");
-        Assert.isTrue(response.reqid == reqid, "The response reqid must be the same as the request reqid.");
-        JoinResponse joinResponse = (JoinResponse) response.event;
+        GameServerMessage matchResponse = this.objectMapper.readValue(matchBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        Assert.isTrue(matchResponse.event instanceof ServerStatusEvent, "The response event must be a ServerStatusEvent.");
+//        Assert.isTrue(matchResponse.reqid == 0, "The response reqid must be the same as the request reqid.");
+        ServerStatusEvent serverStatusEvent = (ServerStatusEvent) matchResponse.event;
+        Assert.isTrue(serverStatusEvent.slotsLeft == 1, "Slots left must be 1");
+
+        //Get the response from the blockingQueue and check it is correct.
+        GameServerMessage gameResponse = this.objectMapper.readValue(gameBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        Assert.isTrue(gameResponse.event instanceof JoinResponse, "The response event must be a JoinResponse.");
+        Assert.isTrue(gameResponse.reqid == reqid, "The response reqid must be the same as the request reqid.");
+        JoinResponse joinResponse = (JoinResponse) gameResponse.event;
         Assert.isTrue(joinResponse.matchUuid.equals(matchUuid), "The response match uuid must match the request.");
 
         //Resend the join message to check you can't join twice
         gameSession.sendMessage(repeatGameMessage);
 
         //Get the response from the blockingQueue and check it is correct.
-        response = this.objectMapper.readValue(blockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
-        Assert.isTrue(response.event instanceof ErrorEvent, "The response event must be a ErrorEvent.");
-        Assert.isTrue(response.reqid == repeatReqid, "The response reqid must be the same as the request reqid.");
-        ErrorEvent error = (ErrorEvent) response.event;
+        gameResponse = this.objectMapper.readValue(gameBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        Assert.isTrue(gameResponse.event instanceof ErrorEvent, "The response event must be a ErrorEvent.");
+        Assert.isTrue(gameResponse.reqid == repeatReqid, "The response reqid must be the same as the request reqid.");
+        ErrorEvent error = (ErrorEvent) gameResponse.event;
         Assert.isTrue(error.error == Error.CLIENT_ALREADY_IN_MATCH, "The response match error type must be CLIENT_ALREADY_IN_MATCH");
 
         gameSession.close();

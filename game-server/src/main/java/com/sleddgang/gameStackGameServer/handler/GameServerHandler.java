@@ -3,7 +3,9 @@ package com.sleddgang.gameStackGameServer.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
+import org.springframework.boot.autoconfigure.couchbase.CouchbaseProperties;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -12,6 +14,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class GameServerHandler extends TextWebSocketHandler {
     private final List<Session> webSocketSessions = new ArrayList<>();
@@ -19,15 +22,44 @@ public class GameServerHandler extends TextWebSocketHandler {
     private final List<Match> matches = new ArrayList<>();
     private final Object matchesMutex = new Object();
 
-    private final BlockingQueue<Match> messageQueue;
+    private final BlockingQueue<Match> gameMessageQueue;
+    private final BlockingQueue<Integer> matchMessageQueue;
+
+    private final int slots;
+    private final Environment env;
 
     public GameServerHandler(ApplicationContext appContext) {
-        this.messageQueue = appContext.getBean(BlockingQueue.class);
+//        this.slots = (int) appContext.getBean("slots");
+        this.env = appContext.getBean(Environment.class);
+        System.out.println(env.getProperty("ID"));
+        System.out.println(env.getProperty("SLOTS"));
+        this.slots = Integer.parseInt(env.getProperty("SLOTS"));
+        System.out.println(slots);
+
+        Object gameQueue = appContext.getBean("gameMessageQueue");
+
+        if (gameQueue instanceof BlockingQueue) {
+            this.gameMessageQueue = (BlockingQueue<Match>) gameQueue;
+        }
+        else {
+            this.gameMessageQueue = new LinkedBlockingQueue<>();
+            System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+        }
+
+        Object matchQueue = appContext.getBean("matchmakingMessageQueue");
+
+        if (matchQueue instanceof BlockingQueue) {
+            this.matchMessageQueue = (BlockingQueue<Integer>) matchQueue;
+        }
+        else {
+            this.matchMessageQueue = new LinkedBlockingQueue<>();
+            System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+        }
 
         Thread thread = new Thread(() -> {
             Match match = null;
             try {
-                match = this.messageQueue.take();
+                match = this.gameMessageQueue.take();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -42,6 +74,7 @@ public class GameServerHandler extends TextWebSocketHandler {
                     }
                     if (!contains) {
                         this.matches.add(match);
+                        matchMessageQueue.add(slots - matches.size());
                     }
                     else {
                         //TODO Implement sending error back to matchmaking server.

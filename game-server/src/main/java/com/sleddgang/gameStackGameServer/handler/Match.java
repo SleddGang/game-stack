@@ -15,31 +15,31 @@ public class Match {
     }
 
     void addClient(Client client) throws UnsupportedOperationException {
-        if (this.clients.size() < 2) {
-            if (this.allowedClients.contains(client.getUuid())) {
-                this.clients.add(client);
+        if (clients.size() < 2) {
+            if (allowedClients.contains(client.getUuid())) {
+                clients.add(client);
             }
             else {
-                throw new UnsupportedOperationException("Match " + this.uuid + " does not allow client " + client);
+                throw new UnsupportedOperationException("Match " + uuid + " does not allow client " + client);
             }
         }
         else {
-            throw new ArrayIndexOutOfBoundsException("Match " + this.uuid + " is already full");
+            throw new ArrayIndexOutOfBoundsException("Match " + uuid + " is already full");
         }
     }
 
     public String getUuid() {
-        return this.uuid;
+        return uuid;
     }
     public ArrayList<String> getAllowedClients() {
-        return this.allowedClients;
+        return allowedClients;
     }
     public ArrayList<Client> getClients() {
-        return this.clients;
+        return clients;
     }
 
     public boolean containsClient(String uuid) {
-        for (Client client : this.clients) {
+        for (Client client : clients) {
             if (client.getUuid().equals(uuid)) {
                 return true;
             }
@@ -48,7 +48,7 @@ public class Match {
     }
 
     public boolean containsClientBySessionId(String sessionId) {
-        for (Client client : this.clients) {
+        for (Client client : clients) {
             if (client.getSessionId().equals(sessionId)) {
                 return true;
             }
@@ -57,7 +57,7 @@ public class Match {
     }
 
     public Client getClientBySessionId(String sessionId) {
-        for (Client client : this.clients) {
+        for (Client client : clients) {
             if (client.getSessionId().equals(sessionId)) {
                 return client;
             }

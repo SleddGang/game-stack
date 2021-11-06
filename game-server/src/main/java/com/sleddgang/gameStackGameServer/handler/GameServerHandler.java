@@ -30,50 +30,47 @@ public class GameServerHandler extends TextWebSocketHandler {
 
     public GameServerHandler(ApplicationContext appContext) {
 //        this.slots = (int) appContext.getBean("slots");
-        this.env = appContext.getBean(Environment.class);
-        System.out.println(env.getProperty("ID"));
-        System.out.println(env.getProperty("SLOTS"));
-        this.slots = Integer.parseInt(env.getProperty("SLOTS"));
-        System.out.println(slots);
+        env = appContext.getBean(Environment.class);
+        slots = Integer.parseInt(env.getProperty("SLOTS"));
 
         Object gameQueue = appContext.getBean("gameMessageQueue");
 
         if (gameQueue instanceof BlockingQueue) {
-            this.gameMessageQueue = (BlockingQueue<Match>) gameQueue;
+            gameMessageQueue = (BlockingQueue<Match>) gameQueue;
         }
         else {
-            this.gameMessageQueue = new LinkedBlockingQueue<>();
+            gameMessageQueue = new LinkedBlockingQueue<>();
             System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
         }
 
         Object matchQueue = appContext.getBean("matchmakingMessageQueue");
 
         if (matchQueue instanceof BlockingQueue) {
-            this.matchMessageQueue = (BlockingQueue<Integer>) matchQueue;
+            matchMessageQueue = (BlockingQueue<Integer>) matchQueue;
         }
         else {
-            this.matchMessageQueue = new LinkedBlockingQueue<>();
+            matchMessageQueue = new LinkedBlockingQueue<>();
             System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
         }
 
         Thread thread = new Thread(() -> {
             Match match = null;
             try {
-                match = this.gameMessageQueue.take();
+                match = gameMessageQueue.take();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             if (match != null) {
                 boolean contains = false;
-                synchronized (this.matchesMutex) {
-                    for (Match m : this.matches) {
+                synchronized (matchesMutex) {
+                    for (Match m : matches) {
                         if (m.getUuid().equals(match.getUuid())) {
                             contains = true;
                             break;
                         }
                     }
                     if (!contains) {
-                        this.matches.add(match);
+                        matches.add(match);
                         matchMessageQueue.add(slots - matches.size());
                     }
                     else {
@@ -87,7 +84,7 @@ public class GameServerHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        this.webSocketSessions.add(new Session(session));
+        webSocketSessions.add(new Session(session));
     }
 
     @Override
@@ -96,8 +93,8 @@ public class GameServerHandler extends TextWebSocketHandler {
 
         //Get the client from the matches. If the client is not in a match then client will be null.
         Session client = null;
-        GameServerMessage message = this.objectMapper.readValue(textMessage.asBytes(), GameServerMessage.class);
-        for (Session s : this.webSocketSessions) {
+        GameServerMessage message = objectMapper.readValue(textMessage.asBytes(), GameServerMessage.class);
+        for (Session s : webSocketSessions) {
             if (s.getSession().getId().equals(session.getId())) {
                 client = s;
                 break;
@@ -106,7 +103,7 @@ public class GameServerHandler extends TextWebSocketHandler {
 
         //
         if (client != null && client.getReqids().contains(message.reqid)) {
-            session.sendMessage(new TextMessage(this.objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.INALID_REQID), message.reqid))));
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.INALID_REQID), message.reqid))));
             return;
         }
         else if (client != null) {
@@ -114,36 +111,36 @@ public class GameServerHandler extends TextWebSocketHandler {
         }
 
         if (message.event instanceof PingEvent) {
-            session.sendMessage(new TextMessage(this.objectMapper.writeValueAsBytes(new PongMessage(message.reqid))));
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new PongMessage(message.reqid))));
         }
         else if (message.event instanceof JoinEvent) {
             JoinEvent event = (JoinEvent) message.event;
             boolean contains = false;
-            synchronized (this.matchesMutex) {
-                for (Match match : this.matches) {
+            synchronized (matchesMutex) {
+                for (Match match : matches) {
                     if (match.getAllowedClients().contains(event.clientUuid)) {
                         contains = true;
                         if (match.containsClient(event.clientUuid)) {
-                            session.sendMessage(new TextMessage(this.objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.CLIENT_ALREADY_IN_MATCH), message.reqid))));
+                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.CLIENT_ALREADY_IN_MATCH), message.reqid))));
                         } else {
                             match.addClient(new Client(event.clientUuid, session.getId()));
-                            session.sendMessage(new TextMessage(this.objectMapper.writeValueAsBytes(new GameServerMessage(new JoinResponse(match.getUuid()), message.reqid))));
+                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinResponse(match.getUuid()), message.reqid))));
                         }
                         break;
                     }
                 }
             }
             if (!contains) {
-                session.sendMessage(new TextMessage(this.objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.INVALID_CLIENT), message.reqid))));
+                session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.INVALID_CLIENT), message.reqid))));
             }
         }
         else {
-            session.sendMessage(new TextMessage(this.objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.UNKNOWN_EVENT), message.reqid))));
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.UNKNOWN_EVENT), message.reqid))));
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        this.webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
+        webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
     }
 }

@@ -1,9 +1,9 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sleddgang.gameStackGameServer.handler.shcemas.*;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
-import org.springframework.boot.autoconfigure.couchbase.CouchbaseProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.web.socket.CloseStatus;
@@ -23,7 +23,7 @@ public class GameServerHandler extends TextWebSocketHandler {
     private final Object matchesMutex = new Object();
 
     private final BlockingQueue<Match> gameMessageQueue;
-    private final BlockingQueue<Integer> matchMessageQueue;
+    private final BlockingQueue<Message> matchMessageQueue;
 
     private final int slots;
     private final Environment env;
@@ -46,13 +46,14 @@ public class GameServerHandler extends TextWebSocketHandler {
         Object matchQueue = appContext.getBean("matchmakingMessageQueue");
 
         if (matchQueue instanceof BlockingQueue) {
-            matchMessageQueue = (BlockingQueue<Integer>) matchQueue;
+            matchMessageQueue = (BlockingQueue<Message>) matchQueue;
         }
         else {
             matchMessageQueue = new LinkedBlockingQueue<>();
             System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
         }
 
+        //This tread will listen for matches from the matchmaker handler and respond appropriately.
         Thread thread = new Thread(() -> {
             Match match = null;
             try {
@@ -60,23 +61,34 @@ public class GameServerHandler extends TextWebSocketHandler {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+
+            //Check if we have a match. If not then respond with INVALID_MATCH.
             if (match != null) {
-                boolean contains = false;
-                synchronized (matchesMutex) {
-                    for (Match m : matches) {
-                        if (m.getUuid().equals(match.getUuid())) {
-                            contains = true;
-                            break;
+                //Check if we have any availabe slots. If not respond with MATCHES_FULL
+                if (matches.size() <= slots) {
+                    boolean contains = false;
+                    synchronized (matchesMutex) {
+                        //Check if we already have the new match. If so respond with DUPLICATE_MATCH. Otherwise, add the match to this.matches.
+                        for (Match m : matches) {
+                            if (m.getUuid().equals(match.getUuid())) {
+                                contains = true;
+                                break;
+                            }
+                        }
+                        if (!contains) {
+                            matches.add(match);
+                            matchMessageQueue.add(new Status(slots - matches.size()));
+                        } else {
+                            matchMessageQueue.add(new ErrorMessage(HandlerError.DUPLICATE_MATCH));
                         }
                     }
-                    if (!contains) {
-                        matches.add(match);
-                        matchMessageQueue.add(slots - matches.size());
-                    }
-                    else {
-                        //TODO Implement sending error back to matchmaking server.
-                    }
                 }
+                else {
+                    matchMessageQueue.add(new ErrorMessage(HandlerError.MATCHES_FULL));
+                }
+            }
+            else {
+                matchMessageQueue.add(new ErrorMessage(HandlerError.INVALID_MATCH));
             }
         });
         thread.start();

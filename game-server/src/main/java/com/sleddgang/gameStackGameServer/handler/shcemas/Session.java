@@ -1,11 +1,11 @@
-package com.sleddgang.gameStackGameServer.handler;
+package com.sleddgang.gameStackGameServer.handler.shcemas;
 
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class Session {
+public class Session extends Message{
     private final WebSocketSession session;
     private final List<Long> reqids;
 

@@ -1,6 +1,9 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sleddgang.gameStackGameServer.handler.shcemas.Match;
+import com.sleddgang.gameStackGameServer.handler.shcemas.Message;
+import com.sleddgang.gameStackGameServer.handler.shcemas.Status;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import org.springframework.context.ApplicationContext;
@@ -24,7 +27,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
     private final Environment env;
 
     private final BlockingQueue<Match> gameMessageQueue;
-    private final BlockingQueue<Integer> matchMessageQueue;
+    private final BlockingQueue<Message> matchMessageQueue;
 
     public MatchmakingHandler(ApplicationContext appContext) {
         env = appContext.getBean(Environment.class);
@@ -43,25 +46,29 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         Object matchQueue = appContext.getBean("matchmakingMessageQueue");
 
         if (matchQueue instanceof BlockingQueue) {
-            matchMessageQueue = (BlockingQueue<Integer>) matchQueue;
+            matchMessageQueue = (BlockingQueue<Message>) matchQueue;
         }
         else {
             matchMessageQueue = new LinkedBlockingQueue<>();
             System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+            //TODO exit because this is unrecoverable.
         }
 
         Thread thread = new Thread(() -> {
-            int slots = -1;
+//            int slots = -1;
+            Message message = null;
             try {
-                slots = matchMessageQueue.take();
+                message = matchMessageQueue.take();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            for (WebSocketSession session : webSocketSessions) {
-                try {
-                    session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ServerStatusEvent(serverId, slots), 0))));
-                } catch (IOException e) {
-                    e.printStackTrace();
+            if (message instanceof Status) {
+                for (WebSocketSession session : webSocketSessions) {
+                    try {
+                        session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ServerStatusEvent(serverId, ((Status) message).getSlots()), 0))));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });

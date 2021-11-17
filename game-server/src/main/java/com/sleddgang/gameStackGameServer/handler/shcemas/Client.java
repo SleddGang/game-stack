@@ -1,9 +1,9 @@
-package com.sleddgang.gameStackGameServer.handler;
+package com.sleddgang.gameStackGameServer.handler.shcemas;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class Client {
+public class Client extends Message {
     private String uuid;
     private String sessionId;
 

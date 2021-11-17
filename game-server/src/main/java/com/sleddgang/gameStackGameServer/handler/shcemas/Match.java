@@ -1,20 +1,20 @@
-package com.sleddgang.gameStackGameServer.handler;
+package com.sleddgang.gameStackGameServer.handler.shcemas;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class Match {
+public class Match extends Message {
     private final String uuid;
     private final ArrayList<Client> clients;
     private final ArrayList<String> allowedClients;
 
-    Match(String uuid, String[] allowedClients) {
+    public Match(String uuid, String[] allowedClients) {
         this.uuid = uuid;
         this.clients = new ArrayList<>(2);
         this.allowedClients = new ArrayList<>(Arrays.asList(allowedClients));
     }
 
-    void addClient(Client client) throws UnsupportedOperationException {
+    public void addClient(Client client) throws UnsupportedOperationException {
         if (clients.size() < 2) {
             if (allowedClients.contains(client.getUuid())) {
                 clients.add(client);

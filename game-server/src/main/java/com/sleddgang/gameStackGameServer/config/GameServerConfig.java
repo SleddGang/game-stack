@@ -1,8 +1,9 @@
 package com.sleddgang.gameStackGameServer.config;
 
 import com.sleddgang.gameStackGameServer.handler.GameServerHandler;
-import com.sleddgang.gameStackGameServer.handler.Match;
+import com.sleddgang.gameStackGameServer.handler.shcemas.Match;
 import com.sleddgang.gameStackGameServer.handler.MatchmakingHandler;
+import com.sleddgang.gameStackGameServer.handler.shcemas.Message;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -51,7 +52,7 @@ public class GameServerConfig implements WebSocketConfigurer {
     }
 
     @Bean(name = "matchmakingMessageQueue")
-    public BlockingQueue<Integer> getMatchmakingMessageQueue() {
+    public BlockingQueue<Message> getMatchmakingMessageQueue() {
         return new LinkedBlockingQueue<>();
     }
     @Bean(name = "gameMessageQueue")

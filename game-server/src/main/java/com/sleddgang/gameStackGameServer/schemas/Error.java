@@ -12,7 +12,8 @@ public enum Error {
     UNKNOWN_EVENT(1, "Unknown event type."),
     INALID_REQID(2, "Invalid request id. Make sure you are using a request id not previously used."),
     CLIENT_ALREADY_IN_MATCH(2, "The client is already in a match"),
-    INVALID_CLIENT(3, "The client is not authorized to join a match");
+    INVALID_CLIENT(3, "The client is not authorized to join a match"),
+    MATCH_ERROR(4, "The game server is unable to make the requested match.");
 
     public int id;
     public String message;

@@ -6,7 +6,7 @@ import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Message;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Status;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
-import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -20,42 +20,44 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class MatchmakingHandler extends TextWebSocketHandler {
-    private final List<WebSocketSession> webSocketSessions = new ArrayList<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final List<WebSocketSession> webSocketSessions = new ArrayList<>(); //Contains a list of all the connected websockets connections;
+    private final ObjectMapper objectMapper = new ObjectMapper();               //Used to serialize and deserialize json.
 
-    private final String serverId;
-    private final Environment env;
+    private final String serverId;  //Id of this server
+    private final Environment env;  //Used to get environmental variables.
 
-    private final BlockingQueue<MatchMessage> gameMessageQueue;
-    private final BlockingQueue<Message> matchMessageQueue;
+    private final BlockingQueue<MatchMessage> gameMessageQueue; //Used to send messages to the GameServerHandler
+    private final BlockingQueue<Message> matchMessageQueue;     //Used to receive messages from the GameServerHandler
 
-    public MatchmakingHandler(ApplicationContext appContext) {
+    public MatchmakingHandler(ConfigurableApplicationContext appContext) {
+        //Get the server id from the environmental variable.
         env = appContext.getBean(Environment.class);
         serverId = env.getProperty("ID");
 
+        //Get the gameMessageQueue from the app context.
         Object gameQueue = appContext.getBean("gameMessageQueue");
-
         if (gameQueue instanceof BlockingQueue) {
             gameMessageQueue = (BlockingQueue<MatchMessage>) gameQueue;
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
             System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+            appContext.close();
         }
 
+        //Get the matchMessageQueue from the app context
         Object matchQueue = appContext.getBean("matchmakingMessageQueue");
-
         if (matchQueue instanceof BlockingQueue) {
             matchMessageQueue = (BlockingQueue<Message>) matchQueue;
         }
         else {
             matchMessageQueue = new LinkedBlockingQueue<>();
-            System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
-            //TODO exit because this is unrecoverable.
+            System.out.println("Unable to cast matchMessageQueue to BlockingQueue.");
+            appContext.close();
         }
 
+        //This thread will wait for a message from the matchMessageQueue and send a status message to every connection.
         Thread thread = new Thread(() -> {
-//            int slots = -1;
             while (true) {
                 Message message = null;
                 try {
@@ -84,11 +86,14 @@ public class MatchmakingHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws Exception {
+        //Deserialize the message from textMessage
         GameServerMessage message = objectMapper.readValue(textMessage.asBytes(), GameServerMessage.class);
+        //If the message is a CreateGameEven then add then new match to gameMessageQueue.
         if (message.event instanceof CreateGameEvent) {
             CreateGameEvent event = (CreateGameEvent) message.event;
             gameMessageQueue.add(new MatchMessage(event.uuid, event.clients));
         }
+        //If we don't recognize the event type then respond with UNKNOWN_EVENT.
         else {
             session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.UNKNOWN_EVENT), message.reqid))));
         }

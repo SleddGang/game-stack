@@ -1,14 +1,11 @@
 package com.sleddgang.gameStackGameServer.handler;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.*;
-import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
+import com.sleddgang.gameStackGameServer.schemas.*;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -23,44 +20,44 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class GameServerHandler extends TextWebSocketHandler {
-    private final List<Session> webSocketSessions = new ArrayList<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Map<String, Match> matches = new HashMap<>();
-    private final Object matchesMutex = new Object();
+    private final List<Session> webSocketSessions = new ArrayList<>();  //List of connected websockets.
+                                                                        //Whenever a new connection is made it is added to this list and whenever a connection is closed it is removed.
+    private final ObjectMapper objectMapper = new ObjectMapper();       //Used to serialize and deserialize json.
+    private final Map<String, Match> matches = new HashMap<>();         //List of currently running matches.
+    private final Object matchesMutex = new Object();                   //Used to lock matches.
 
-    private final BlockingQueue<MatchMessage> gameMessageQueue;
-    private final BlockingQueue<Message> matchMessageQueue;
+    private final BlockingQueue<MatchMessage> gameMessageQueue;         //Used to receive messages from the MatchmakingHandler.
+    private final BlockingQueue<Message> matchMessageQueue;             //Used to send messages to the MatchmakingHandler.
 
-    private final int slots;
-    private final Environment env;
+    private final int slots;        //Max number of running matches.
+    private final Environment env;  //Used to get slots.
 
-    @Autowired
-    private TaskExecutor threadPoolTaskExecutor;
-
-    public GameServerHandler(ApplicationContext appContext) {
-//        this.slots = (int) appContext.getBean("slots");
+    public GameServerHandler(ConfigurableApplicationContext appContext) {
         //TODO Handle null env variables.
+        //Get the slots from the passed environmental variable. You did pass and environmental variable didn't you?
         env = appContext.getBean(Environment.class);
         slots = Integer.parseInt(env.getProperty("SLOTS"));
 
+        //Get the gameMessageQueue from the application context.
         Object gameQueue = appContext.getBean("gameMessageQueue");
-
         if (gameQueue instanceof BlockingQueue) {
             gameMessageQueue = (BlockingQueue<MatchMessage>) gameQueue;
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
             System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+            appContext.close();
         }
 
+        //Get the matchmakingMessageQueue from the application context.
         Object matchQueue = appContext.getBean("matchmakingMessageQueue");
-
         if (matchQueue instanceof BlockingQueue) {
             matchMessageQueue = (BlockingQueue<Message>) matchQueue;
         }
         else {
             matchMessageQueue = new LinkedBlockingQueue<>();
             System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+            appContext.close();
         }
 
         //This tread will listen for matches from the matchmaker handler and respond appropriately.
@@ -127,17 +124,22 @@ public class GameServerHandler extends TextWebSocketHandler {
         if (message.event instanceof PingEvent) {
             session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new PongMessage(message.reqid))));
         }
-        //If the message is a join then find the client's match and check if they are already in the match. If they aren't then add them to the match and respond with a JoinResponse.
+        //If the message is a join then find the client's match and check if they are already in the match.
+        //If they aren't then add them to the match and respond with a JoinResponse.
         else if (message.event instanceof JoinEvent) {
             JoinEvent event = (JoinEvent) message.event;
             boolean contains = false;
             synchronized (matchesMutex) {
+                //Loop through each match in matches and find the one that allows the client.
                 for (Map.Entry<String, Match> match : matches.entrySet()) {
                     if (match.getValue().getAllowedClients().contains(event.clientUuid)) {
                         contains = true;
+                        //Check if the client is already in a match. If so respond with a CLIENT_ALREADY_IN_MATCH error.
+                        // Otherwise add the client to the match and respond to inform the client.
                         if (match.getValue().containsClient(event.clientUuid)) {
                             sendMessage(session, new ErrorEvent(Error.CLIENT_ALREADY_IN_MATCH), message.reqid);
-                        } else {
+                        }
+                        else {
                             match.getValue().addClient(new Client(event.clientUuid, session));
                             sendMessage(session, new JoinResponse(match.getValue().getUuid()), message.reqid);
                         }
@@ -150,16 +152,19 @@ public class GameServerHandler extends TextWebSocketHandler {
                 sendMessage(session, new ErrorEvent(Error.INVALID_CLIENT), message.reqid);
             }
         }
+        //If the message is a move event find the match that contains the client and play their move.
         else if (message.event instanceof MoveEvent) {
             MoveEvent event = (MoveEvent) message.event;
             boolean contains = false;
             synchronized (matchesMutex) {
                 for (Map.Entry<String, Match> match : matches.entrySet()) {
+                    //If match contains client play the clients move.
                     if (match.getValue().containsClientBySessionId(session.getId())) {
                         contains = true;
+                        //Play the clients move. This also handles the game logic and sending out the results to the clients.
                         Match.Status status = match.getValue().playMove(session.getId(), event.move, message.reqid);
                         switch (status) {
-                            case ERROR:
+                            case ERROR: //When the status is an error we need to inform the clients, close the connection, and remove the match.
                                 match.getValue().getClients().forEach((c) -> {
                                     try {
                                         sendMessage(c.getSession(), new ErrorEvent(Error.MATCH_ERROR), message.reqid);
@@ -171,7 +176,7 @@ public class GameServerHandler extends TextWebSocketHandler {
                                 });
                                 matches.remove(match.getKey());
                                 break;
-                            case ENDED:
+                            case ENDED: //When the status is ended we need to close the connection and remove the match.
                                 match.getValue().getClients().forEach((c) -> {
                                     try {
                                         c.getSession().close();
@@ -203,6 +208,7 @@ public class GameServerHandler extends TextWebSocketHandler {
         webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
     }
 
+    //Sends a message using session.
     private void sendMessage(WebSocketSession session, GameServerEvent event, long reqid) throws IOException {
         session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(event, reqid))));
     }

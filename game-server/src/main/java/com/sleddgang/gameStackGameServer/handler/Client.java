@@ -1,10 +1,9 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.sleddgang.gameStackGameServer.gameLogic.Option;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Message;
 import org.springframework.web.socket.WebSocketSession;
 
-public class Client extends Message {
+public class Client {
     private String uuid;
     private WebSocketSession session;
     private Option move = null;

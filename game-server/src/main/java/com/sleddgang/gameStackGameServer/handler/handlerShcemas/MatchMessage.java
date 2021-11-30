@@ -6,10 +6,14 @@ import java.util.Arrays;
 public class MatchMessage {
     private final String uuid;
     private final ArrayList<String> allowedClients;
+    private final String server;
+    private final long reqid;
 
-    public MatchMessage(String uuid, String[] allowedClients) {
+    public MatchMessage(String uuid, String[] allowedClients, String server, long reqid) {
         this.uuid = uuid;
         this.allowedClients = new ArrayList<>(Arrays.asList(allowedClients));
+        this.server = server;
+        this.reqid = reqid;
     }
 
     public String getUuid() {
@@ -18,5 +22,13 @@ public class MatchMessage {
 
     public ArrayList<String> getAllowedClients() {
         return allowedClients;
+    }
+
+    public String getServer() {
+        return server;
+    }
+
+    public long getReqid() {
+        return reqid;
     }
 }

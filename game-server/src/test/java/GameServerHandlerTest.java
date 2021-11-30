@@ -16,6 +16,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -33,13 +34,44 @@ class GameServerHandlerTest {
     @LocalServerPort
     private Integer port;
 
-    private WebSocketClient client;
+    private WebSocketClient clientOneSocket;
+    private WebSocketClient clientTwoSocket;
+    private WebSocketClient matchClientSocket;
     private ObjectMapper objectMapper;
+    private URI gameUri;
+    private URI matchUri;
+    private BlockingQueue<String> clientOneBlockingQueue;
+    private BlockingQueue<String> clientTwoBlockingQueue;
+    private BlockingQueue<String> matchBlockingQueue;
+    private TextWebSocketHandler clientOneHandler;
+    private TextWebSocketHandler clientTwoHandler;
+    private TextWebSocketHandler matchHandler;
 
     @BeforeEach
-    public void setup() {
+    public void setup() throws URISyntaxException {
         objectMapper = new ObjectMapper();
-        client = new StandardWebSocketClient();
+        clientOneSocket = new StandardWebSocketClient();
+        clientTwoSocket = new StandardWebSocketClient();
+        matchClientSocket = new StandardWebSocketClient();
+
+        gameUri = new URI(String.format("ws://localhost:%d/game", port));
+        matchUri = new URI(String.format("ws://localhost:%d/matchmaking", port));
+        clientOneBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+        clientTwoBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+        matchBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+
+        clientOneHandler = createHandler(message -> {
+            System.out.println("Client1 Handler: " + message);
+            clientOneBlockingQueue.add(message);
+        });
+        clientTwoHandler = createHandler(message -> {
+            System.out.println("Client2 Handler: " + message);
+            clientTwoBlockingQueue.add(message);
+        });
+        matchHandler = createHandler(message -> {
+            System.out.println("Match Handler: " + message);
+            matchBlockingQueue.add(message);
+        });
     }
 
     @Test
@@ -84,23 +116,18 @@ class GameServerHandlerTest {
     public void verifyInvalidReqid() throws Exception {
         Random rand = new Random();
         long reqid = rand.nextLong();
-        URI uri = new URI(String.format("ws://localhost:%d/game", port));
-        BlockingQueue<String> blockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
 
-        TextWebSocketHandler handler = createHandler(message -> {
-            System.out.println(message);
-            blockingQueue.add(message);
-        });
-        WebSocketSession session = client.doHandshake(handler, null, uri).get(1, TimeUnit.SECONDS);
+        WebSocketSession session = clientOneSocket.doHandshake(clientOneHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+
 
         //Create ping message to send to the server using the random reqid and send it to the server.
         TextMessage socketMessage = new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new PingEvent(), reqid)));
         session.sendMessage(socketMessage);
-        blockingQueue.poll(1, TimeUnit.SECONDS);
+        clientOneBlockingQueue.poll(1, TimeUnit.SECONDS);
         session.sendMessage(socketMessage);
 
         //Get the response from the blockingQueue and check it is correct.
-        GameServerMessage response = objectMapper.readValue(blockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        GameServerMessage response = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
         checkError(response, reqid, Error.INVALID_REQID);
 
         session.close();
@@ -108,22 +135,16 @@ class GameServerHandlerTest {
 
     @Test
     public void verifyMatchmaking() throws Exception {
-        WebSocketClient matchClient = new StandardWebSocketClient();
-
         String matchUuid = "test1";
         String client1 = "client1";
         String client2 = "client2";
 
         long reqid = 1;
         long repeatReqid = reqid + 1;
-        URI gameUri = new URI(String.format("ws://localhost:%d/game", port));
-        URI matchUri = new URI(String.format("ws://localhost:%d/matchmaking", port));
-        BlockingQueue<String> gameBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
-        BlockingQueue<String> matchBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
 
         TextWebSocketHandler gameHandler = createHandler(message -> {
             System.out.println("Game Handler: " + message);
-            gameBlockingQueue.add(message);
+            clientOneBlockingQueue.add(message);
         });
 
         TextWebSocketHandler matchHandler = createHandler(message -> {
@@ -131,8 +152,8 @@ class GameServerHandlerTest {
             matchBlockingQueue.add(message);
         });
 
-        WebSocketSession gameSession = client.doHandshake(gameHandler, null, gameUri).get(1, TimeUnit.SECONDS);
-        WebSocketSession matchSession = matchClient.doHandshake(matchHandler, null, matchUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession gameSession = clientOneSocket.doHandshake(gameHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession matchSession = matchClientSocket.doHandshake(matchHandler, null, matchUri).get(1, TimeUnit.SECONDS);
 
         TextMessage gameMessage = new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), reqid)));
         TextMessage repeatGameMessage = new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), repeatReqid)));
@@ -141,19 +162,19 @@ class GameServerHandlerTest {
 
         //Get the response from the blockingQueue and check it is correct.
         GameServerMessage matchResponse = objectMapper.readValue(matchBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
-        checkStatus(matchResponse, reqid);
+        checkStatus(matchResponse, reqid, 1);
 
         gameSession.sendMessage(gameMessage);
 
         //Get the response from the blockingQueue and check it is correct.
-        GameServerMessage gameResponse = objectMapper.readValue(gameBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        GameServerMessage gameResponse = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
         checkJoinResponse(gameResponse, reqid, matchUuid);
 
         //Resend the join message to check you can't join twice
         gameSession.sendMessage(repeatGameMessage);
 
         //Get the response from the blockingQueue and check it is correct.
-        gameResponse = objectMapper.readValue(gameBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        gameResponse = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
         checkError(gameResponse, repeatReqid, Error.CLIENT_ALREADY_IN_MATCH);
 
         gameSession.close();
@@ -161,35 +182,69 @@ class GameServerHandlerTest {
     }
 
     @Test
-    public void verifyGame() throws Exception {
-        WebSocketClient clientTwoSocket = new StandardWebSocketClient();
-        WebSocketClient matchClientSocket = new StandardWebSocketClient();
-
-        String matchUuid = "test2";
+    public void verifyMatchmakingErrors() throws Exception {
+        String matchUuid = "test4";
         String client1 = "gameClient1";
         String client2 = "gameClient2";
 
         long reqid = 1;
-        URI gameUri = new URI(String.format("ws://localhost:%d/game", port));
-        URI matchUri = new URI(String.format("ws://localhost:%d/matchmaking", port));
-        BlockingQueue<String> clientOneBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
-        BlockingQueue<String> clientTwoBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
-        BlockingQueue<String> matchBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
 
-        TextWebSocketHandler clientOneHandler = createHandler(message -> {
-            System.out.println("Client1 Handler: " + message);
-            clientOneBlockingQueue.add(message);
-        });
-        TextWebSocketHandler clientTwoHandler = createHandler(message -> {
-            System.out.println("Client2 Handler: " + message);
-            clientTwoBlockingQueue.add(message);
-        });
-        TextWebSocketHandler matchHandler = createHandler(message -> {
-            System.out.println("Match Handler: " + message);
-            matchBlockingQueue.add(message);
-        });
+        WebSocketSession gameOneSession = clientOneSocket.doHandshake(clientOneHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession matchSession = matchClientSocket.doHandshake(matchHandler, null, matchUri).get(1, TimeUnit.SECONDS);
 
-        WebSocketSession gameOneSession = client.doHandshake(clientOneHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        matchSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new CreateGameEvent(matchUuid, new String[]{client1, client2}), reqid))));
+
+        //Get the response from the blockingQueue and check it is correct.
+        GameServerMessage matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkStatus(matchResponse, reqid, 1);
+
+        matchSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new CreateGameEvent(matchUuid, new String[]{client1, client2}), reqid))));
+
+        //Get the response from the blockingQueue and check it is correct.
+        matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkError(matchResponse, reqid, Error.DUPLICATE_MATCH);
+
+        gameOneSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), reqid))));
+
+        GameServerMessage gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        checkJoinResponse(gameOneResponse, reqid, matchUuid);
+
+        gameOneSession.close();
+        TimeUnit.MILLISECONDS.sleep(250);
+        Assert.isTrue(!gameOneSession.isOpen(), "GameOneSession should not be open");
+
+        reqid++;
+
+        for (int i = 0; i < 3; i++) {
+            System.out.println("Creating match: " + i);
+            matchUuid = "test4-" + i;
+            client1 = "gameClient1-" + i;
+            client2 = "gameClient2-" + i;
+
+            matchSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new CreateGameEvent(matchUuid, new String[]{client1, client2}), reqid + i))));
+        }
+
+        //Get the response from the blockingQueue and check it is correct.
+        matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkStatus(matchResponse, 0, 1);
+        matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkStatus(matchResponse, 0, 0);
+        matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkError(matchResponse, reqid + 2, Error.MATCHES_FULL);
+
+        matchSession.close();
+        gameOneSession.close();
+    }
+
+    @Test
+    public void verifyShutdown() throws Exception {
+        String matchUuid = "test3";
+        String client1 = "gameClient1";
+        String client2 = "gameClient2";
+
+        long reqid = 1;
+
+        WebSocketSession gameOneSession = clientOneSocket.doHandshake(clientOneHandler, null, gameUri).get(1, TimeUnit.SECONDS);
         WebSocketSession gameTwoSession = clientTwoSocket.doHandshake(clientTwoHandler, null, gameUri).get(1, TimeUnit.SECONDS);
         WebSocketSession matchSession = matchClientSocket.doHandshake(matchHandler, null, matchUri).get(1, TimeUnit.SECONDS);
 
@@ -197,13 +252,68 @@ class GameServerHandlerTest {
 
         //Get the response from the blockingQueue and check it is correct.
         GameServerMessage matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
-        checkStatus(matchResponse, reqid);
+        checkStatus(matchResponse, reqid, 1);
 
         gameOneSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), reqid))));
         gameTwoSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client2), reqid))));
 
-        GameServerMessage gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
-        GameServerMessage gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        GameServerMessage gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        GameServerMessage gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        checkJoinResponse(gameOneResponse, reqid, matchUuid);
+        checkJoinResponse(gameTwoResponse, reqid, matchUuid);
+
+        reqid++;
+
+        gameOneSession.close();
+        TimeUnit.MILLISECONDS.sleep(250);
+        Assert.isTrue(!gameOneSession.isOpen(), "GameOneSession should not be open");
+        Assert.isTrue(!gameTwoSession.isOpen(), "GameTwoSession should not be open");
+
+        gameOneSession = clientOneSocket.doHandshake(clientOneHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        gameTwoSession = clientTwoSocket.doHandshake(clientTwoHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+
+        matchSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new CreateGameEvent(matchUuid, new String[]{client1, client2}), reqid))));
+
+        //Get the response from the blockingQueue and check it is correct.
+         matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkStatus(matchResponse, reqid, 1);
+
+        gameOneSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), reqid))));
+        gameTwoSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client2), reqid))));
+
+        gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        checkJoinResponse(gameOneResponse, reqid, matchUuid);
+        checkJoinResponse(gameTwoResponse, reqid, matchUuid);
+
+        gameOneSession.close();
+        gameTwoSession.close();
+        matchSession.close();
+    }
+
+    @Test
+    public void verifyGame() throws Exception {
+        String matchUuid = "test2";
+        String client1 = "gameClient1";
+        String client2 = "gameClient2";
+
+        long reqid = 1;
+
+        WebSocketSession gameOneSession = clientOneSocket.doHandshake(clientOneHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession gameTwoSession = clientTwoSocket.doHandshake(clientTwoHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession matchSession = matchClientSocket.doHandshake(matchHandler, null, matchUri).get(1, TimeUnit.SECONDS);
+
+        matchSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new CreateGameEvent(matchUuid, new String[]{client1, client2}), reqid))));
+
+        //Get the response from the blockingQueue and check it is correct.
+        GameServerMessage matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkStatus(matchResponse, reqid, 1);
+
+        gameOneSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), reqid))));
+        gameTwoSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client2), reqid))));
+
+        GameServerMessage gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        GameServerMessage gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
         checkJoinResponse(gameOneResponse, reqid, matchUuid);
         checkJoinResponse(gameTwoResponse, reqid, matchUuid);
 
@@ -212,8 +322,8 @@ class GameServerHandlerTest {
         gameOneSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new MoveEvent(Option.ROCK), reqid))));
         gameTwoSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new MoveEvent(Option.PAPER), reqid))));
 
-        gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
-        gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
         checkResult(gameOneResponse, reqid, Result.LOSS);
         checkResult(gameTwoResponse, reqid, Result.WIN);
 
@@ -224,7 +334,7 @@ class GameServerHandlerTest {
 
     private WebSocketSession sendMessage(URI uri, GameServerMessage message, HandleText handleText) throws Exception {
         TextWebSocketHandler handler = createHandler(handleText);
-        WebSocketSession session = client.doHandshake(handler, null, uri).get(1, TimeUnit.SECONDS);
+        WebSocketSession session = clientOneSocket.doHandshake(handler, null, uri).get(1, TimeUnit.SECONDS);
 
         //Create ping message to send to the server using the random reqid and send it to the server.
         TextMessage socketMessage = new TextMessage(objectMapper.writeValueAsBytes(message));
@@ -254,10 +364,10 @@ class GameServerHandlerTest {
         Assert.isTrue(joinResponse.matchUuid.equals(matchUuid), "The response match uuid must match the request.");
     }
 
-    private void checkStatus(GameServerMessage response, long reqid) {
+    private void checkStatus(GameServerMessage response, long reqid, int slots) {
         checkMessage(response, 0, ServerStatusEvent.class);
         ServerStatusEvent serverStatusEvent = (ServerStatusEvent) response.event;
-        Assert.isTrue(serverStatusEvent.slotsLeft == 1, "Slots left must be 1.");
+        Assert.isTrue(serverStatusEvent.slotsLeft == slots, "Slots left must be 1.");
     }
 
     private void checkResult(GameServerMessage response, long reqid, Result result) {

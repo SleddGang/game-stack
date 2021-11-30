@@ -73,19 +73,19 @@ public class GameServerHandler extends TextWebSocketHandler {
                 //Check if we have a match. If not then respond with INVALID_MATCH.
                 if (match != null) {
                     //Check if we have any available slots. If not respond with MATCHES_FULL
-                    if (matches.size() <= slots) {
+                    if (matches.size() < slots) {
                         //Check if we already have a match with that uuid. If so respond with DUPLICATE_MATCH otherwise add the match.
                         if (matches.containsKey(match.getUuid())) {
-                            matchMessageQueue.add(new ErrorMessage(HandlerError.DUPLICATE_MATCH));
+                            matchMessageQueue.add(new ErrorMessage(HandlerError.DUPLICATE_MATCH, match.getServer(), match.getReqid()));
                         } else {
                             matches.put(match.getUuid(), new Match(match));
                             matchMessageQueue.add(new Status(slots - matches.size()));
                         }
                     } else {
-                        matchMessageQueue.add(new ErrorMessage(HandlerError.MATCHES_FULL));
+                        matchMessageQueue.add(new ErrorMessage(HandlerError.MATCHES_FULL, match.getServer(), match.getReqid()));
                     }
                 } else {
-                    matchMessageQueue.add(new ErrorMessage(HandlerError.INVALID_MATCH));
+                    matchMessageQueue.add(new ErrorMessage(HandlerError.INVALID_MATCH, match.getServer(), match.getReqid()));
                 }
             }
         });
@@ -205,6 +205,15 @@ public class GameServerHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        synchronized (matchesMutex) {
+            for (Map.Entry<String, Match> match : matches.entrySet()) {
+                if (match.getValue().getClients().stream().anyMatch(client -> client.getSession().getId().equals(session.getId()))) {
+                    match.getValue().shutdown();
+                    matches.remove(match.getKey());
+                }
+                break;
+            }
+        }
         webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
     }
 

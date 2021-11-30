@@ -14,7 +14,9 @@ public enum Error {
     CLIENT_ALREADY_IN_MATCH(3, "The client is already in a match"),
     INVALID_CLIENT(4, "The client is not authorized to join a match"),
     INVALID_MATCH_ERROR(5, "The game server is unable to make the requested match."),
-    MATCH_ERROR(6, "The game server had an issue processing the match. Please join a new match.");
+    MATCHES_FULL(6, "The game server is already full of matches."),
+    DUPLICATE_MATCH(7, "the game server alread has a match with that uuid"),
+    MATCH_ERROR(8, "The game server had an issue processing the match. Please join a new match.");
 
     public int id;
     public String message;

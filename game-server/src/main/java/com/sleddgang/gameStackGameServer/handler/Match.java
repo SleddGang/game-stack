@@ -108,6 +108,16 @@ public class Match extends Message {
         }
     }
 
+    public void shutdown() {
+        clients.forEach(client -> {
+            try {
+                client.getSession().close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
     public String getUuid() {
         return uuid;
     }
@@ -117,6 +127,7 @@ public class Match extends Message {
     public ArrayList<Client> getClients() {
         return clients;
     }
+
 
     //Check if the match contains a client based on the clients uuid.
     public boolean containsClient(String uuid) {

@@ -1,6 +1,7 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sleddgang.gameStackGameServer.handler.handlerShcemas.ErrorMessage;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.MatchMessage;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Message;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Status;
@@ -74,6 +75,19 @@ public class MatchmakingHandler extends TextWebSocketHandler {
                         }
                     }
                 }
+                else if (message instanceof ErrorMessage) {
+                    ErrorMessage error = (ErrorMessage) message;
+                    switch (error.getError()) {
+                        case MATCHES_FULL:
+                            sendError(error, Error.MATCHES_FULL);
+                            break;
+                        case DUPLICATE_MATCH:
+                            sendError(error, Error.DUPLICATE_MATCH);
+                            break;
+                        case INVALID_MATCH:
+                            sendError(error, Error.INVALID_MATCH_ERROR);
+                    }
+                }
             }
         });
         thread.start();
@@ -81,7 +95,9 @@ public class MatchmakingHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        webSocketSessions.add(session);
+        synchronized (webSocketSessions) {
+            webSocketSessions.add(session);
+        }
     }
 
     @Override
@@ -91,7 +107,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         //If the message is a CreateGameEven then add then new match to gameMessageQueue.
         if (message.event instanceof CreateGameEvent) {
             CreateGameEvent event = (CreateGameEvent) message.event;
-            gameMessageQueue.add(new MatchMessage(event.uuid, event.clients));
+            gameMessageQueue.add(new MatchMessage(event.uuid, event.clients, session.getId(), message.reqid));
         }
         //If we don't recognize the event type then respond with UNKNOWN_EVENT.
         else {
@@ -101,6 +117,21 @@ public class MatchmakingHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        webSocketSessions.remove(session);
+        synchronized (webSocketSessions) {
+            webSocketSessions.remove(session);
+        }
+    }
+
+    private void sendError(ErrorMessage errorMessage, Error error) {
+        synchronized (webSocketSessions) {
+            if (webSocketSessions.stream().anyMatch(s -> s.getId().equals(errorMessage.getServer()))) {
+                WebSocketSession session = webSocketSessions.stream().filter(s -> s.getId().equals(errorMessage.getServer())).findFirst().get();
+                try {
+                    session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(error), errorMessage.getReqid()))));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }

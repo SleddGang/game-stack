@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackGameServer.handler.shcemas;
+package com.sleddgang.gameStackGameServer.handler.handlerShcemas;
 
 import org.springframework.web.socket.WebSocketSession;
 

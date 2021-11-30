@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackGameServer.handler.shcemas;
+package com.sleddgang.gameStackGameServer.handler.handlerShcemas;
 
 public class ErrorMessage extends Message {
     private final HandlerError error;

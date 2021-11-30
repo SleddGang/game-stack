@@ -1,4 +1,5 @@
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sleddgang.gameStackGameServer.gameLogic.Option;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,11 +15,10 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.sleddgang.gameStackGameServer.GameServerApplication;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @TestPropertySource(properties = {"ID = test1", "SLOTS = 2"})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = GameServerApplication.class)
@@ -127,7 +127,7 @@ class GameServerHandlerTest {
         Assert.isTrue(response.event instanceof ErrorEvent, "The response event must be error.");
         Assert.isTrue(response.reqid == reqid, "The response reqid must be the same as the request reqid.");
         ErrorEvent error = (ErrorEvent) response.event;
-        Assert.isTrue(error.error == Error.INALID_REQID, "The response error type must be INVALID_REQID");
+        Assert.isTrue(error.error == Error.INVALID_REQID, "The response error type must be INVALID_REQID");
 
         session.close();
     }
@@ -136,7 +136,7 @@ class GameServerHandlerTest {
     public void verifyMatchmaking() throws Exception {
         WebSocketClient matchClient = new StandardWebSocketClient();
 
-        String matchUuid = "test";
+        String matchUuid = "test1";
         String client1 = "client1";
         String client2 = "client2";
 
@@ -148,12 +148,12 @@ class GameServerHandlerTest {
         BlockingQueue<String> matchBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
 
         TextWebSocketHandler gameHandler = createHandler(message -> {
-            System.out.println(message);
+            System.out.println("Game Handler: " + message);
             gameBlockingQueue.add(message);
         });
 
         TextWebSocketHandler matchHandler = createHandler(message -> {
-            System.out.println(message);
+            System.out.println("Match Handler: " + message);
             matchBlockingQueue.add(message);
         });
 
@@ -168,14 +168,11 @@ class GameServerHandlerTest {
         gameSession.sendMessage(gameMessage);
 
         //Get the response from the blockingQueue and check it is correct.
-        GameServerMessage matchResponse = objectMapper.readValue(matchBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
-        Assert.isTrue(matchResponse.event instanceof ServerStatusEvent, "The response event must be a ServerStatusEvent.");
-//        Assert.isTrue(matchResponse.reqid == 0, "The response reqid must be the same as the request reqid.");
-        ServerStatusEvent serverStatusEvent = (ServerStatusEvent) matchResponse.event;
-        Assert.isTrue(serverStatusEvent.slotsLeft == 1, "Slots left must be 1");
+        GameServerMessage matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkStatus(matchResponse, reqid);
 
         //Get the response from the blockingQueue and check it is correct.
-        GameServerMessage gameResponse = objectMapper.readValue(gameBlockingQueue.poll(1, TimeUnit.SECONDS), GameServerMessage.class);
+        GameServerMessage gameResponse = objectMapper.readValue(gameBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
         Assert.isTrue(gameResponse.event instanceof JoinResponse, "The response event must be a JoinResponse.");
         Assert.isTrue(gameResponse.reqid == reqid, "The response reqid must be the same as the request reqid.");
         JoinResponse joinResponse = (JoinResponse) gameResponse.event;
@@ -193,5 +190,86 @@ class GameServerHandlerTest {
 
         gameSession.close();
         matchSession.close();
+    }
+
+    @Test
+    public void verifyGame() throws Exception {
+        WebSocketClient clientTwoSocket = new StandardWebSocketClient();
+        WebSocketClient matchClientSocket = new StandardWebSocketClient();
+
+        String matchUuid = "test2";
+        String client1 = "gameClient1";
+        String client2 = "gameClient2";
+
+        long reqid = 1;
+        URI gameUri = new URI(String.format("ws://localhost:%d/game", port));
+        URI matchUri = new URI(String.format("ws://localhost:%d/matchmaking", port));
+        BlockingQueue<String> clientOneBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+        BlockingQueue<String> clientTwoBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+        BlockingQueue<String> matchBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+
+        TextWebSocketHandler clientOneHandler = createHandler(message -> {
+            System.out.println("Client1 Handler: " + message);
+            clientOneBlockingQueue.add(message);
+        });
+        TextWebSocketHandler clientTwoHandler = createHandler(message -> {
+            System.out.println("Client2 Handler: " + message);
+            clientTwoBlockingQueue.add(message);
+        });
+        TextWebSocketHandler matchHandler = createHandler(message -> {
+            System.out.println("Match Handler: " + message);
+            matchBlockingQueue.add(message);
+        });
+
+        WebSocketSession gameOneSession = client.doHandshake(clientOneHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession gameTwoSession = clientTwoSocket.doHandshake(clientTwoHandler, null, gameUri).get(1, TimeUnit.SECONDS);
+        WebSocketSession matchSession = matchClientSocket.doHandshake(matchHandler, null, matchUri).get(1, TimeUnit.SECONDS);
+
+        matchSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new CreateGameEvent(matchUuid, new String[]{client1, client2}), reqid))));
+
+        //Get the response from the blockingQueue and check it is correct.
+        GameServerMessage matchResponse = objectMapper.readValue(matchBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkStatus(matchResponse, reqid);
+
+        gameOneSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client1), reqid))));
+        gameTwoSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new JoinEvent(client2), reqid))));
+
+        GameServerMessage gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        GameServerMessage gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkJoinResponse(gameOneResponse, reqid, matchUuid);
+        checkJoinResponse(gameTwoResponse, reqid, matchUuid);
+
+        reqid++;
+
+        gameOneSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new MoveEvent(Option.ROCK), reqid))));
+        gameTwoSession.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new MoveEvent(Option.PAPER), reqid))));
+
+        gameOneResponse = objectMapper.readValue(clientOneBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        gameTwoResponse = objectMapper.readValue(clientTwoBlockingQueue.poll(5, TimeUnit.SECONDS), GameServerMessage.class);
+        checkResult(gameOneResponse, reqid, Result.LOSS);
+        checkResult(gameTwoResponse, reqid, Result.WIN);
+    }
+
+    private void checkMessage(GameServerMessage response, long reqid, Class<?> type) {
+        Assert.isTrue(type.isInstance(response.event), "The response event must be a " + type + ".");
+        Assert.isTrue(response.reqid == reqid, "The response reqid must be the same as the request reqid.");
+    }
+
+    private void checkJoinResponse(GameServerMessage response, long reqid, String matchUuid) {
+        checkMessage(response, reqid, JoinResponse.class);
+        JoinResponse joinResponse = (JoinResponse) response.event;
+        Assert.isTrue(joinResponse.matchUuid.equals(matchUuid), "The response match uuid must match the request.");
+    }
+
+    private void checkStatus(GameServerMessage response, long reqid) {
+        checkMessage(response, 0, ServerStatusEvent.class);
+        ServerStatusEvent serverStatusEvent = (ServerStatusEvent) response.event;
+        Assert.isTrue(serverStatusEvent.slotsLeft == 1, "Slots left must be 1.");
+    }
+
+    private void checkResult(GameServerMessage response, long reqid, Result result) {
+        checkMessage(response, reqid, ResultEvent.class);
+        ResultEvent resultEvent = (ResultEvent) response.event;
+        Assert.isTrue(resultEvent.result == result, "Unexpected result.");
     }
 }

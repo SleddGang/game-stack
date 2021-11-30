@@ -1,9 +1,9 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sleddgang.gameStackGameServer.handler.shcemas.Match;
-import com.sleddgang.gameStackGameServer.handler.shcemas.Message;
-import com.sleddgang.gameStackGameServer.handler.shcemas.Status;
+import com.sleddgang.gameStackGameServer.handler.handlerShcemas.MatchMessage;
+import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Message;
+import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Status;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import org.springframework.context.ApplicationContext;
@@ -26,7 +26,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
     private final String serverId;
     private final Environment env;
 
-    private final BlockingQueue<Match> gameMessageQueue;
+    private final BlockingQueue<MatchMessage> gameMessageQueue;
     private final BlockingQueue<Message> matchMessageQueue;
 
     public MatchmakingHandler(ApplicationContext appContext) {
@@ -36,7 +36,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         Object gameQueue = appContext.getBean("gameMessageQueue");
 
         if (gameQueue instanceof BlockingQueue) {
-            gameMessageQueue = (BlockingQueue<Match>) gameQueue;
+            gameMessageQueue = (BlockingQueue<MatchMessage>) gameQueue;
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
@@ -56,18 +56,20 @@ public class MatchmakingHandler extends TextWebSocketHandler {
 
         Thread thread = new Thread(() -> {
 //            int slots = -1;
-            Message message = null;
-            try {
-                message = matchMessageQueue.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            if (message instanceof Status) {
-                for (WebSocketSession session : webSocketSessions) {
-                    try {
-                        session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ServerStatusEvent(serverId, ((Status) message).getSlots()), 0))));
-                    } catch (IOException e) {
-                        e.printStackTrace();
+            while (true) {
+                Message message = null;
+                try {
+                    message = matchMessageQueue.take();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                if (message instanceof Status) {
+                    for (WebSocketSession session : webSocketSessions) {
+                        try {
+                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ServerStatusEvent(serverId, ((Status) message).getSlots()), 0))));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
@@ -85,7 +87,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         GameServerMessage message = objectMapper.readValue(textMessage.asBytes(), GameServerMessage.class);
         if (message.event instanceof CreateGameEvent) {
             CreateGameEvent event = (CreateGameEvent) message.event;
-            gameMessageQueue.add(new Match(event.uuid, event.clients));
+            gameMessageQueue.add(new MatchMessage(event.uuid, event.clients));
         }
         else {
             session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.UNKNOWN_EVENT), message.reqid))));

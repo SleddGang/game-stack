@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackGameServer.handler.shcemas;
+package com.sleddgang.gameStackGameServer.handler.handlerShcemas;
 
 public class Status extends Message {
     private final int slots;

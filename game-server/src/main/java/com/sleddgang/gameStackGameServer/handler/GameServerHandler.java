@@ -19,19 +19,51 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * The GameServerHandler handles clients connecting and disconnecting as well as client messages.
+ *
+ * @author  Benjamin
+ */
 public class GameServerHandler extends TextWebSocketHandler {
+    /**
+     * WebSocketSessions contains all of the currently connected sessions.
+     */
     private final List<Session> webSocketSessions = new ArrayList<>();  //List of connected websockets.
                                                                         //Whenever a new connection is made it is added to this list and whenever a connection is closed it is removed.
     private final ObjectMapper objectMapper = new ObjectMapper();       //Used to serialize and deserialize json.
+
+    /**
+     * Contains a list of matches that are currently running on the server.
+     */
     private final Map<String, Match> matches = new HashMap<>();         //List of currently running matches.
     private final Object matchesMutex = new Object();                   //Used to lock matches.
 
+    /**
+     * Used to send receive messages from the {@link MatchmakingHandler}.
+     */
     private final BlockingQueue<MatchMessage> gameMessageQueue;         //Used to receive messages from the MatchmakingHandler.
-    private final BlockingQueue<Message> matchMessageQueue;             //Used to send messages to the MatchmakingHandler.
 
+    /**
+     * Used to send messages to the {@link MatchmakingHandler}.
+     * <p>See {@link MatchmakingHandler}'s constructor for the code that listens for the these messages.</p>
+     */
+    private final BlockingQueue<AbstractHandlerMessage> matchMessageQueue;             //Used to send messages to the MatchmakingHandler.
+
+    /**
+     * Maximum number of matches that's allowed on the server at once.
+     * Slots gets set by the environmental variable SLOTS.
+     */
     private final int slots;        //Max number of running matches.
     private final Environment env;  //Used to get slots.
 
+    /**
+     * This constructor sets up slots as well as gameMessageQueue and matchMessageQueue.
+     * It also creates the thread that listens for messages on the gameMessageQueue.
+     * Whenever it receives a message it creates a match based on the message information however
+     * if it runs into an error it will inform the {@link MatchmakingHandler} using the matchMessageQueue.
+     *
+     * @param appContext Current application context used to get slots gameMessageQueue and matchMessageQueue.
+     */
     public GameServerHandler(ConfigurableApplicationContext appContext) {
         //TODO Handle null env variables.
         //Get the slots from the passed environmental variable. You did pass and environmental variable didn't you?
@@ -52,7 +84,7 @@ public class GameServerHandler extends TextWebSocketHandler {
         //Get the matchmakingMessageQueue from the application context.
         Object matchQueue = appContext.getBean("matchmakingMessageQueue");
         if (matchQueue instanceof BlockingQueue) {
-            matchMessageQueue = (BlockingQueue<Message>) matchQueue;
+            matchMessageQueue = (BlockingQueue<AbstractHandlerMessage>) matchQueue;
         }
         else {
             matchMessageQueue = new LinkedBlockingQueue<>();
@@ -92,13 +124,32 @@ public class GameServerHandler extends TextWebSocketHandler {
         thread.start();
     }
 
+    /**
+     * This function gets called whenever a new client connects and will add the client session to webSocketSessions.
+     *
+     * @param session Incoming client session.
+     */
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+    public void afterConnectionEstablished(WebSocketSession session) {
         webSocketSessions.add(new Session(session));
     }
 
+    /**
+     * This function gets called whenever a client sends a message to the server.
+     * It will deserialize the message from json and check if the client has already used the message reqid.
+     * It will then determine what type of event is in the message.
+     * <p>If it is a ping event it will respond with a pong.</p>
+     * <p>If it is a join event it will add the client to the appropiate match assuming the client is autorized to do so and
+     * the client is not already in that match.</p>
+     * <p>If it is a move event it will play the selected move.</p>
+     * <p>If the event is not recognized then send the client an unknown event error.</p>
+     *
+     * @param session       WebSocket session that is connected to the client sending the message.
+     * @param textMessage   Contents of the clients message.
+     * @throws IOException  Gets thrown whenever the client sends invalid json or a message fails to send.
+     */
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws Exception {
+    protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws IOException {
         //TODO Handle invalid json.
 
         //Get the client from the matches. If the client is not in a match then client will be null.
@@ -192,7 +243,7 @@ public class GameServerHandler extends TextWebSocketHandler {
                     }
                 }
             }
-            //If the client is not authorized to join a match then respond with a INVALID_CLIENT error.
+            //If the client is not authorized to play in the match then respond with a INVALID_CLIENT error.
             if (!contains) {
                 sendMessage(session, new ErrorEvent(Error.INVALID_CLIENT), message.reqid);
             }
@@ -203,8 +254,17 @@ public class GameServerHandler extends TextWebSocketHandler {
         }
     }
 
+    /**
+     * This function gets called whenever a client disconnects from the server.
+     * If the client is in a match that match gets informed that the other client has disconnected
+     * and will will disconnect the remaining clients.
+     * The client session will also get removed from webSocketSessions.
+     *
+     * @param session   Clients WebSocket session.
+     * @param status
+     */
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         synchronized (matchesMutex) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
                 if (match.getValue().getClients().stream().anyMatch(client -> client.getSession().getId().equals(session.getId()))) {
@@ -217,6 +277,14 @@ public class GameServerHandler extends TextWebSocketHandler {
         webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
     }
 
+    /**
+     * This helper function simplifies sending messages.
+     *
+     * @param session       WebSocket session to send the message on.
+     * @param event         Event to send.
+     * @param reqid         Reqid to send the message with.
+     * @throws IOException  Gets thrown whenever a message fails to send.
+     */
     //Sends a message using session.
     private void sendMessage(WebSocketSession session, GameServerEvent event, long reqid) throws IOException {
         session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(event, reqid))));

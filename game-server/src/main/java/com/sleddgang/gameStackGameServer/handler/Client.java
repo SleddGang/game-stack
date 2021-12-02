@@ -3,13 +3,41 @@ package com.sleddgang.gameStackGameServer.handler;
 import com.sleddgang.gameStackGameServer.gameLogic.Option;
 import org.springframework.web.socket.WebSocketSession;
 
+/**
+ * Client contains all the information on a client so that the client can be in a match
+ *
+ * @see Match
+ * @author Benjamin
+ */
 public class Client {
+    /**
+     * Uuid of the client given out by the matchmaking server.
+     */
     private String uuid;
+
+    /**
+     * WebSocket session connected to the client.
+     */
     private WebSocketSession session;
+
+    /**
+     * Clients rock paper scissors move. Is null if the client has not made a move.
+     */
     private Option move = null;
+
+    /**
+     * Reqid of the message the move message that the client sent so that
+     * when we respond with the result we can use this reqid.
+     */
     private long moveReqid = 0;
 
 
+    /**
+     * This constructor creates a client from the client uuid and WebSocket session.
+     *
+     * @param uuid      Uuid of the client given out by the matchmaking server.
+     * @param session   Websocket session connected to the client.
+     */
     public Client(String uuid, WebSocketSession session) {
         this.uuid = uuid;
         this.session = session;
@@ -23,6 +51,9 @@ public class Client {
         return session;
     }
 
+    /**
+     * @return  The session id of the clients connected session.
+     */
     public String getSessionId() {
         return this.session.getId();
     }
@@ -35,6 +66,12 @@ public class Client {
         return moveReqid;
     }
 
+    /**
+     * Sets both move and moveReqid.
+     *
+     * @param move      Move that the client is making.
+     * @param moveReqid Reqid of the message that the move was sent on.
+     */
     public void setMove(Option move, long moveReqid) {
         this.move = move;
         this.moveReqid = moveReqid;

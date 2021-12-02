@@ -1,5 +1,10 @@
 package com.sleddgang.gameStackGameServer.gameLogic;
 
+/**
+ * Used to represent a move.
+ *
+ * @author Benjamin
+ */
 public enum Option {
     ROCK("Rock", 1),
     PAPER("Paper", 2),

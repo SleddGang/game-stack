@@ -3,6 +3,12 @@ package com.sleddgang.gameStackGameServer.handler.handlerShcemas;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+/**
+ * Used to send the necessary information to create a match.
+ * MatchMessage gets sent from the matchmaking handler to the game handler.
+ *
+ * @author Benjamin
+ */
 public class MatchMessage {
     private final String uuid;
     private final ArrayList<String> allowedClients;

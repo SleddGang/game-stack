@@ -1,5 +1,9 @@
 package com.sleddgang.gameStackGameServer.schemas;
 
+/**
+ * @see Error
+ * @author Benjamin
+ */
 public class ErrorEvent extends GameServerEvent {
     public Error error;
 

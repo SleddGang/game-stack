@@ -142,13 +142,8 @@ public class GameServerHandler extends TextWebSocketHandler {
 
     /**
      * This function gets called whenever a client sends a message to the server.
-     * It will deserialize the message from json and check if the client has already used the message reqid.
-     * It will then determine what type of event is in the message.
-     * <p>If it is a ping event it will respond with a pong.</p>
-     * <p>If it is a join event it will add the client to the appropriate match assuming the client is authorized to do so and
-     * the client is not already in that match.</p>
-     * <p>If it is a move event it will play the selected move.</p>
-     * <p>If the event is not recognized then send the client an unknown event error.</p>
+     * It will deserialize the message from json and call handleMethod if it is a method.
+     * <p>If the message type is not recognized then send the client an unknown message error.</p>
      *
      * @param session       WebSocket session that is connected to the client sending the message.
      * @param textMessage   Contents of the clients message.
@@ -194,6 +189,21 @@ public class GameServerHandler extends TextWebSocketHandler {
         webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
     }
 
+    /**
+     * HandleMethod takes in a clients method and responds appropriately.
+     * It first checks if the client has already used the message reqid.
+     * If the client has then it will inform the client with an INVALID_REQID error.
+     * It will then determine what type of method is in the message.
+     * <p>If it is a ping method it will respond with a pong.</p>
+     * <p>If it is a join method it will add the client to the appropriate match assuming the client is authorized to do so and
+     * the client is not already in that match.</p>
+     * <p>If it is a move method it will play the selected move.</p>
+     * <p>If we don't recognize the method type then respond with an UNKNOWN_MESSAGE error.</p>
+     *
+     * @param session       Client WebSocket session
+     * @param method        Client message.
+     * @throws IOException  Gets thrown whenever a message to the client fails to send.
+     */
     private void handleMethod(WebSocketSession session, AbstractGameMethod method) throws IOException {
         //Get the client from the matches. If the client is not in a match then client will be null.
         Session client = null;

@@ -1,11 +1,13 @@
-package com.sleddgang.gameStackGameServer.schemas;
+package com.sleddgang.gameStackGameServer.schemas.methods;
+
+import com.sleddgang.gameStackGameServer.schemas.AbstractGameMethod;
 
 /**
  * This event is sent from the matchmaking server to the game server to inform it that it should make a new match.
  *
  * @author Benjamin
  */
-public class CreateGameEvent extends GameServerEvent {
+public class CreateGameMethod extends AbstractGameMethod {
     /**
      * Uuid of the match to create.
      */
@@ -16,13 +18,13 @@ public class CreateGameEvent extends GameServerEvent {
      */
     public String[] clients;
 
-    public CreateGameEvent(String uuid, String[] clients) {
+    public CreateGameMethod(String uuid, String[] clients, long reqid) {
         this.uuid = uuid;
         this.clients = clients;
+        this.reqid = reqid;
     }
 
-    public CreateGameEvent() {
-        this.uuid = "";
-        this.clients = new String[2];
+    public CreateGameMethod() {
+        this("", new String[2], 0);
     }
 }

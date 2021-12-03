@@ -26,17 +26,10 @@ public class Client {
     private Option move = null;
 
     /**
-     * Reqid of the message the move message that the client sent so that
-     * when we respond with the result we can use this reqid.
-     */
-    private long moveReqid = 0;
-
-
-    /**
      * This constructor creates a client from the client uuid and WebSocket session.
      *
      * @param uuid      Uuid of the client given out by the matchmaking server.
-     * @param session   Websocket session connected to the client.
+     * @param session   WebSocket session connected to the client.
      */
     public Client(String uuid, WebSocketSession session) {
         this.uuid = uuid;
@@ -62,18 +55,13 @@ public class Client {
         return move;
     }
 
-    public long getMoveReqid() {
-        return moveReqid;
-    }
 
     /**
      * Sets both move and moveReqid.
      *
      * @param move      Move that the client is making.
-     * @param moveReqid Reqid of the message that the move was sent on.
      */
-    public void setMove(Option move, long moveReqid) {
+    public void setMove(Option move) {
         this.move = move;
-        this.moveReqid = moveReqid;
     }
 }

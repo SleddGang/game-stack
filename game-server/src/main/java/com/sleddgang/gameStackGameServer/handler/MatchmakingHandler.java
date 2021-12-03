@@ -7,6 +7,9 @@ import com.sleddgang.gameStackGameServer.handler.handlerShcemas.AbstractHandlerM
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Status;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
+import com.sleddgang.gameStackGameServer.schemas.events.ServerStatusReply;
+import com.sleddgang.gameStackGameServer.schemas.methods.CreateGameMethod;
+import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.web.socket.CloseStatus;
@@ -34,7 +37,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class MatchmakingHandler extends TextWebSocketHandler {
     /**
-     * WebSocketSessions contains all of the currently connected sessions.
+     * WebSocketSessions contains all the currently connected sessions.
      */
     private final List<WebSocketSession> webSocketSessions = new ArrayList<>(); //Contains a list of all the connected websockets connections;
 
@@ -59,13 +62,13 @@ public class MatchmakingHandler extends TextWebSocketHandler {
 
     /**
      * This constructor sets up the serverId as well as the gameMessageQueue and the matchMessageQueue.
-     * It the starts up a thread that will listen for messages on the matchMessageQueue.
+     * It starts up a thread that will listen for messages on the matchMessageQueue.
      * If the message on the queue is a status message then a status message will be sent to all connected matchmaking
-     * servers. This might change in the future.  If it is an error the error will be sent the the appropriate
+     * servers. This might change in the future.  If it is an error the error will be sent to the appropriate
      * matchmaking server.
      *
      * @param appContext    Used get the id from the environmental variable ID and
-     *                      and the game and match message queues from spring.
+     *                      the game and match message queues from spring.
      */
     public MatchmakingHandler(ConfigurableApplicationContext appContext) {
         //Get the server id from the environmental variable.
@@ -106,7 +109,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
                 if (message instanceof Status) {
                     for (WebSocketSession session : webSocketSessions) {
                         try {
-                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ServerStatusEvent(serverId, ((Status) message).getSlots()), 0))));
+                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ServerStatusReply(serverId, ((Status) message).getSlots()))));
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -146,7 +149,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
     /**
      * This function gets called whenever a message is sent from a matchmaking server.
      * It will deserialize the message and if it contains a create game event then
-     * it add a create game message to the game server queue.
+     * it will add a create game message to the game server queue.
      * If it does not contain a create game event it will respond with an unknown event error.
      *
      * @param session       WebSocket session of the connected matchmaking server.
@@ -157,15 +160,15 @@ public class MatchmakingHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws IOException {
         //Deserialize the message from textMessage
-        GameServerMessage message = objectMapper.readValue(textMessage.asBytes(), GameServerMessage.class);
-        //If the message is a CreateGameEven then add then new match to gameMessageQueue.
-        if (message.event instanceof CreateGameEvent) {
-            CreateGameEvent event = (CreateGameEvent) message.event;
-            gameMessageQueue.add(new MatchMessage(event.uuid, event.clients, session.getId(), message.reqid));
+        AbstractGameMessage message = objectMapper.readValue(textMessage.asBytes(), AbstractGameMessage.class);
+        //If the message is a CreateGameMethod then add the new match to gameMessageQueue.
+        if (message instanceof CreateGameMethod) {
+            CreateGameMethod method = (CreateGameMethod) message;
+            gameMessageQueue.add(new MatchMessage(method.uuid, method.clients, session.getId(), method.reqid));
         }
         //If we don't recognize the event type then respond with UNKNOWN_EVENT.
         else {
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(Error.UNKNOWN_EVENT), message.reqid))));
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ErrorReply(Error.UNKNOWN_MESSAGE, -1))));
         }
     }
 
@@ -188,14 +191,14 @@ public class MatchmakingHandler extends TextWebSocketHandler {
      *
      * @param errorMessage  Error message that contains the matchmaking server id and
      *                      the reqid that the error is responding to.
-     * @param error         Type of error the send to the matchmaking server.
+     * @param error         Type of error to send to the matchmaking server.
      */
     private void sendError(ErrorMessage errorMessage, Error error) {
         synchronized (webSocketSessions) {
             if (webSocketSessions.stream().anyMatch(s -> s.getId().equals(errorMessage.getServer()))) {
                 WebSocketSession session = webSocketSessions.stream().filter(s -> s.getId().equals(errorMessage.getServer())).findFirst().get();
                 try {
-                    session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(new ErrorEvent(error), errorMessage.getReqid()))));
+                    session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ErrorReply(error, errorMessage.getReqid()))));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

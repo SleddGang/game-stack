@@ -1,4 +1,7 @@
-package com.sleddgang.gameStackGameServer.schemas;
+package com.sleddgang.gameStackGameServer.schemas.events;
+
+import com.sleddgang.gameStackGameServer.schemas.AbstractGameEvent;
+import com.sleddgang.gameStackGameServer.schemas.Result;
 
 /**
  * ResultEvent is sent to each client in a match to inform them of the results of the match.
@@ -6,7 +9,7 @@ package com.sleddgang.gameStackGameServer.schemas;
  * @see Result
  * @author Benjamin
  */
-public class ResultEvent extends GameServerEvent {
+public class ResultEvent extends AbstractGameEvent {
     public Result result;
 
     public ResultEvent(Result result) {

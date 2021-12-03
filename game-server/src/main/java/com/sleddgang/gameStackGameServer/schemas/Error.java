@@ -4,24 +4,25 @@ package com.sleddgang.gameStackGameServer.schemas;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
 
 /**
  * Different types of errors that can be sent over a WebSocket.
  *
- * @see ErrorEvent
+ * @see ErrorReply
  * @author Benjamin
  */
 // @JsonFormat tells jackson to serialize the enum properties not the name;
 @JsonFormat(shape = JsonFormat.Shape.OBJECT)
 public enum Error {
     /**
-     * Default error. It is only used in the error event default constructor. See {@link ErrorEvent}.
+     * Default error. It is only used in the error event default constructor. See {@link ErrorReply}.
      */
     DEFAULT(0, ""),
     /**
      * Used to indicate that the sever did not recognize the event type that was sent.
      */
-    UNKNOWN_EVENT(1, "Unknown event type."),
+    UNKNOWN_MESSAGE(1, "Unknown message type."),
     /**
      * Indicates that the reqid that the client used has already been used.
      */
@@ -48,9 +49,9 @@ public enum Error {
      * Indicates to a matchmaking server that the game server is unable to make a match because
      * a match with the requested uuid already exists.
      */
-    DUPLICATE_MATCH(7, "the game server alread has a match with that uuid"),
+    DUPLICATE_MATCH(7, "The game server already has a match with that uuid"),
     /**
-     * Indicates to a client that the server ran into an error while running the match and they should
+     * Indicates to a client that the server ran into an error while running the match, and they should
      * join a new match
      */
     MATCH_ERROR(8, "The game server had an issue processing the match. Please join a new match.");

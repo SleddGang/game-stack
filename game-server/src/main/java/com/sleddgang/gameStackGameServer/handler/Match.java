@@ -6,9 +6,9 @@ import com.sleddgang.gameStackGameServer.gameLogic.LogicResult;
 import com.sleddgang.gameStackGameServer.gameLogic.Option;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.MatchMessage;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.AbstractHandlerMessage;
-import com.sleddgang.gameStackGameServer.schemas.GameServerMessage;
+import com.sleddgang.gameStackGameServer.schemas.AbstractGameMessage;
 import com.sleddgang.gameStackGameServer.schemas.Result;
-import com.sleddgang.gameStackGameServer.schemas.ResultEvent;
+import com.sleddgang.gameStackGameServer.schemas.events.ResultEvent;
 import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
@@ -32,7 +32,7 @@ public class Match extends AbstractHandlerMessage {
     private final String uuid;                      //Uuid of the match.
 
     /**
-     * List of clients that are connected the the match
+     * List of clients that are connected to the match
      */
     //TODO This should maybe be a hash map.
     private final ArrayList<Client> clients;        //List of clients that are connected to the match.
@@ -81,7 +81,7 @@ public class Match extends AbstractHandlerMessage {
         if (client == null) {
             return Status.ERROR;
         }
-        client.setMove(move, moveReqid);
+        client.setMove(move);
 
         //Count how many clients have made a move;
         int validMoves = (int) clients.stream().filter(c -> c.getMove() != null).count();
@@ -113,9 +113,9 @@ public class Match extends AbstractHandlerMessage {
             ObjectMapper objectMapper = new ObjectMapper();
             try {
                 clients.get(0).getSession().sendMessage(new TextMessage(objectMapper.writeValueAsBytes(
-                        new GameServerMessage(new ResultEvent(playerOneResult), clients.get(0).getMoveReqid()))));
+                        new ResultEvent(playerOneResult))));
                 clients.get(1).getSession().sendMessage(new TextMessage(objectMapper.writeValueAsBytes(
-                        new GameServerMessage(new ResultEvent(playerTwoResult), clients.get(1).getMoveReqid()))));
+                        new ResultEvent(playerTwoResult))));
             } catch (IOException e) {
                 e.printStackTrace();
                 return Status.ERROR;
@@ -229,7 +229,7 @@ public class Match extends AbstractHandlerMessage {
     }
 
     /**
-     * Used to inform the handler of the current state of the websocket
+     * Used to inform the handler of the current state of the WebSocket
      * <p>JOINING if the clients are still joining.</p>
      * <p>PLAYING if only one client has played a move.</p>
      * <p>ENDED if the match has ended without error.</p>

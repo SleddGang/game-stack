@@ -4,6 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sleddgang.gameStackGameServer.handler.handlerShcemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
+import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
+import com.sleddgang.gameStackGameServer.schemas.methods.JoinMethod;
+import com.sleddgang.gameStackGameServer.schemas.methods.MoveMethod;
+import com.sleddgang.gameStackGameServer.schemas.methods.PingMethod;
+import com.sleddgang.gameStackGameServer.schemas.replies.JoinReply;
+import com.sleddgang.gameStackGameServer.schemas.replies.PongReply;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.web.socket.CloseStatus;
@@ -26,7 +32,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class GameServerHandler extends TextWebSocketHandler {
     /**
-     * WebSocketSessions contains all of the currently connected sessions.
+     * WebSocketSessions contains all the currently connected sessions.
      */
     private final List<Session> webSocketSessions = new ArrayList<>();  //List of connected websockets.
                                                                         //Whenever a new connection is made it is added to this list and whenever a connection is closed it is removed.
@@ -139,7 +145,7 @@ public class GameServerHandler extends TextWebSocketHandler {
      * It will deserialize the message from json and check if the client has already used the message reqid.
      * It will then determine what type of event is in the message.
      * <p>If it is a ping event it will respond with a pong.</p>
-     * <p>If it is a join event it will add the client to the appropiate match assuming the client is autorized to do so and
+     * <p>If it is a join event it will add the client to the appropriate match assuming the client is authorized to do so and
      * the client is not already in that match.</p>
      * <p>If it is a move event it will play the selected move.</p>
      * <p>If the event is not recognized then send the client an unknown event error.</p>
@@ -152,9 +158,45 @@ public class GameServerHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws IOException {
         //TODO Handle invalid json.
 
+
+        AbstractGameMessage message = objectMapper.readValue(textMessage.asBytes(), AbstractGameMessage.class);
+
+        //Check if the message is a method and if so figure out what to do with it.
+        if (message instanceof AbstractGameMethod) {
+            handleMethod(session, (AbstractGameMethod) message);
+        }
+        //If the message is not a method then respond with an UNKNOWN_MESSAGE error with an id of -1.
+        else {
+            sendMessage(session, new ErrorReply(Error.UNKNOWN_MESSAGE, -1));
+        }
+    }
+
+    /**
+     * This function gets called whenever a client disconnects from the server.
+     * If the client is in a match that match gets informed that the other client has disconnected
+     * and will disconnect the remaining clients.
+     * The client session will also get removed from webSocketSessions.
+     *
+     * @param session   Clients WebSocket session.
+     * @param status
+     */
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        synchronized (matchesMutex) {
+            for (Map.Entry<String, Match> match : matches.entrySet()) {
+                if (match.getValue().getClients().stream().anyMatch(client -> client.getSession().getId().equals(session.getId()))) {
+                    match.getValue().shutdown();
+                    matches.remove(match.getKey());
+                }
+                break;
+            }
+        }
+        webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
+    }
+
+    private void handleMethod(WebSocketSession session, AbstractGameMethod method) throws IOException {
         //Get the client from the matches. If the client is not in a match then client will be null.
         Session client = null;
-        GameServerMessage message = objectMapper.readValue(textMessage.asBytes(), GameServerMessage.class);
         for (Session s : webSocketSessions) {
             if (s.getSession().getId().equals(session.getId())) {
                 client = s;
@@ -163,22 +205,23 @@ public class GameServerHandler extends TextWebSocketHandler {
         }
 
         //Check if the client has already used message's reqid. If so send an error back otherwise add the reqid to the client's list of reqids.
-        if (client != null && client.getReqids().contains(message.reqid)) {
-            sendMessage(session, new ErrorEvent(Error.INVALID_REQID), message.reqid);
+        if (client != null && client.getReqids().contains(method.reqid)) {
+            sendMessage(session, new ErrorReply(Error.INVALID_REQID, method.reqid));
             return;
         }
         else if (client != null) {
-            client.getReqids().add(message.reqid);
+            client.getReqids().add(method.reqid);
         }
 
         //If the message is a ping respond with a pong.
-        if (message.event instanceof PingEvent) {
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new PongMessage(message.reqid))));
+        if (method instanceof PingMethod) {
+            sendMessage(session, new PongReply(method.reqid));
         }
+
         //If the message is a join then find the client's match and check if they are already in the match.
         //If they aren't then add them to the match and respond with a JoinResponse.
-        else if (message.event instanceof JoinEvent) {
-            JoinEvent event = (JoinEvent) message.event;
+        else if (method instanceof JoinMethod) {
+            JoinMethod event = (JoinMethod) method;
             boolean contains = false;
             synchronized (matchesMutex) {
                 //Loop through each match in matches and find the one that allows the client.
@@ -186,13 +229,13 @@ public class GameServerHandler extends TextWebSocketHandler {
                     if (match.getValue().getAllowedClients().contains(event.clientUuid)) {
                         contains = true;
                         //Check if the client is already in a match. If so respond with a CLIENT_ALREADY_IN_MATCH error.
-                        // Otherwise add the client to the match and respond to inform the client.
+                        // Otherwise, add the client to the match and respond to inform the client.
                         if (match.getValue().containsClient(event.clientUuid)) {
-                            sendMessage(session, new ErrorEvent(Error.CLIENT_ALREADY_IN_MATCH), message.reqid);
+                            sendMessage(session, new ErrorReply(Error.CLIENT_ALREADY_IN_MATCH, method.reqid));
                         }
                         else {
                             match.getValue().addClient(new Client(event.clientUuid, session));
-                            sendMessage(session, new JoinResponse(match.getValue().getUuid()), message.reqid);
+                            sendMessage(session, new JoinReply(match.getValue().getUuid(), method.reqid));
                         }
                         break;
                     }
@@ -200,12 +243,12 @@ public class GameServerHandler extends TextWebSocketHandler {
             }
             //If the client is not authorized to join a match then respond with a INVALID_CLIENT error.
             if (!contains) {
-                sendMessage(session, new ErrorEvent(Error.INVALID_CLIENT), message.reqid);
+                sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, method.reqid));
             }
         }
         //If the message is a move event find the match that contains the client and play their move.
-        else if (message.event instanceof MoveEvent) {
-            MoveEvent event = (MoveEvent) message.event;
+        else if (method instanceof MoveMethod) {
+            MoveMethod event = (MoveMethod) method;
             boolean contains = false;
             synchronized (matchesMutex) {
                 for (Map.Entry<String, Match> match : matches.entrySet()) {
@@ -213,12 +256,12 @@ public class GameServerHandler extends TextWebSocketHandler {
                     if (match.getValue().containsClientBySessionId(session.getId())) {
                         contains = true;
                         //Play the clients move. This also handles the game logic and sending out the results to the clients.
-                        Match.Status status = match.getValue().playMove(session.getId(), event.move, message.reqid);
+                        Match.Status status = match.getValue().playMove(session.getId(), event.move, method.reqid);
                         switch (status) {
                             case ERROR: //When the status is an error we need to inform the clients, close the connection, and remove the match.
                                 match.getValue().getClients().forEach((c) -> {
                                     try {
-                                        sendMessage(c.getSession(), new ErrorEvent(Error.MATCH_ERROR), message.reqid);
+                                        sendMessage(c.getSession(), new ErrorReply(Error.MATCH_ERROR, method.reqid));
                                         c.getSession().close();
                                     } catch (IOException e) {
                                         //TODO Figure out when this will throw an exception.
@@ -245,48 +288,24 @@ public class GameServerHandler extends TextWebSocketHandler {
             }
             //If the client is not authorized to play in the match then respond with a INVALID_CLIENT error.
             if (!contains) {
-                sendMessage(session, new ErrorEvent(Error.INVALID_CLIENT), message.reqid);
+                sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, method.reqid));
             }
         }
-        //If we don't recognize the event type then respond with an UNKNOWN_EVENT error.
+        //If we don't recognize the method type then respond with an UNKNOWN_MESSAGE error.
         else {
-            sendMessage(session, new ErrorEvent(Error.UNKNOWN_EVENT), message.reqid);
+            sendMessage(session, new ErrorReply(Error.UNKNOWN_MESSAGE, method.reqid));
         }
-    }
-
-    /**
-     * This function gets called whenever a client disconnects from the server.
-     * If the client is in a match that match gets informed that the other client has disconnected
-     * and will will disconnect the remaining clients.
-     * The client session will also get removed from webSocketSessions.
-     *
-     * @param session   Clients WebSocket session.
-     * @param status
-     */
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        synchronized (matchesMutex) {
-            for (Map.Entry<String, Match> match : matches.entrySet()) {
-                if (match.getValue().getClients().stream().anyMatch(client -> client.getSession().getId().equals(session.getId()))) {
-                    match.getValue().shutdown();
-                    matches.remove(match.getKey());
-                }
-                break;
-            }
-        }
-        webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
     }
 
     /**
      * This helper function simplifies sending messages.
      *
      * @param session       WebSocket session to send the message on.
-     * @param event         Event to send.
-     * @param reqid         Reqid to send the message with.
+     * @param data          Data to send.
      * @throws IOException  Gets thrown whenever a message fails to send.
      */
     //Sends a message using session.
-    private void sendMessage(WebSocketSession session, GameServerEvent event, long reqid) throws IOException {
-        session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new GameServerMessage(event, reqid))));
+    private void sendMessage(WebSocketSession session, AbstractGameMessage data) throws IOException {
+        session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(data)));
     }
 }

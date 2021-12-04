@@ -5,17 +5,17 @@
 */
 
 job("Upload docs") {
-    container(displayName = "Upload Docs", image = "ubuntu") {
-        startOn {
+    startOn {
             gitPush {
             	branchFilter {
                 	+"refs/heads/release-0.1"
             	}
                 pathFilter {
-                    +"doc/**
+                    +"doc/**"
                 }
         	}
 		}
+    container(displayName = "Upload Docs", image = "ubuntu") {
         env["KEY"] = Secrets("docs-rsa")
         shellScript {
             interpreter = "/bin/bash"

@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackGameServer.handler.handlerShcemas;
+package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
 
 /**
  * ErrorMessage is used to send any error from the game handler to the match handler.

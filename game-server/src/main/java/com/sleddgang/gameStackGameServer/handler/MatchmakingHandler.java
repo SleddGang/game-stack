@@ -1,10 +1,10 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.ErrorMessage;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.MatchMessage;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.AbstractHandlerMessage;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.Status;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.ErrorMessage;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.MatchMessage;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.AbstractHandlerMessage;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.Status;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.events.ServerStatusReply;

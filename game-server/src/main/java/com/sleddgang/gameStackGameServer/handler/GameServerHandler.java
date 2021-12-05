@@ -1,7 +1,7 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.*;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
@@ -231,79 +231,85 @@ public class GameServerHandler extends TextWebSocketHandler {
         //If the message is a join then find the client's match and check if they are already in the match.
         //If they aren't then add them to the match and respond with a JoinResponse.
         else if (method instanceof JoinMethod) {
-            JoinMethod event = (JoinMethod) method;
-            boolean contains = false;
-            synchronized (matchesMutex) {
-                //Loop through each match in matches and find the one that allows the client.
-                for (Map.Entry<String, Match> match : matches.entrySet()) {
-                    if (match.getValue().getAllowedClients().contains(event.clientUuid)) {
-                        contains = true;
-                        //Check if the client is already in a match. If so respond with a CLIENT_ALREADY_IN_MATCH error.
-                        // Otherwise, add the client to the match and respond to inform the client.
-                        if (match.getValue().containsClient(event.clientUuid)) {
-                            sendMessage(session, new ErrorReply(Error.CLIENT_ALREADY_IN_MATCH, method.reqid));
-                        }
-                        else {
-                            match.getValue().addClient(new Client(event.clientUuid, session));
-                            sendMessage(session, new JoinReply(match.getValue().getUuid(), method.reqid));
-                        }
-                        break;
-                    }
-                }
-            }
-            //If the client is not authorized to join a match then respond with a INVALID_CLIENT error.
-            if (!contains) {
-                sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, method.reqid));
-            }
+            handleJoinMethod(session, (JoinMethod) method);
         }
         //If the message is a move event find the match that contains the client and play their move.
         else if (method instanceof MoveMethod) {
-            MoveMethod event = (MoveMethod) method;
-            boolean contains = false;
-            synchronized (matchesMutex) {
-                for (Map.Entry<String, Match> match : matches.entrySet()) {
-                    //If match contains client play the clients move.
-                    if (match.getValue().containsClientBySessionId(session.getId())) {
-                        contains = true;
-                        //Play the clients move. This also handles the game logic and sending out the results to the clients.
-                        Match.Status status = match.getValue().playMove(session.getId(), event.move, method.reqid);
-                        switch (status) {
-                            case ERROR: //When the status is an error we need to inform the clients, close the connection, and remove the match.
-                                match.getValue().getClients().forEach((c) -> {
-                                    try {
-                                        sendMessage(c.getSession(), new ErrorReply(Error.MATCH_ERROR, method.reqid));
-                                        c.getSession().close();
-                                    } catch (IOException e) {
-                                        //TODO Figure out when this will throw an exception.
-                                        e.printStackTrace();
-                                    }
-                                });
-                                matches.remove(match.getKey());
-                                break;
-                            case ENDED: //When the status is ended we need to close the connection and remove the match.
-                                match.getValue().getClients().forEach((c) -> {
-                                    try {
-                                        c.getSession().close();
-                                    } catch (IOException e) {
-                                        //TODO Figure out when this will throw an exception.
-                                        e.printStackTrace();
-                                    }
-                                });
-                                matches.remove(match.getKey());
-                                break;
-                        }
-                        break;
-                    }
-                }
-            }
-            //If the client is not authorized to play in the match then respond with a INVALID_CLIENT error.
-            if (!contains) {
-                sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, method.reqid));
-            }
+           handleMoveMethod(session, (MoveMethod) method);
         }
         //If we don't recognize the method type then respond with an UNKNOWN_MESSAGE error.
         else {
             sendMessage(session, new ErrorReply(Error.UNKNOWN_MESSAGE, method.reqid));
+        }
+    }
+
+    private void handleJoinMethod(WebSocketSession session, JoinMethod joinMethod) throws IOException {
+        boolean contains = false;
+        synchronized (matchesMutex) {
+            //Loop through each match in matches and find the one that allows the client.
+            for (Map.Entry<String, Match> match : matches.entrySet()) {
+                if (match.getValue().getAllowedClients().contains(joinMethod.clientUuid)) {
+                    contains = true;
+                    //Check if the client is already in a match. If so respond with a CLIENT_ALREADY_IN_MATCH error.
+                    // Otherwise, add the client to the match and respond to inform the client.
+                    if (match.getValue().containsClient(joinMethod.clientUuid)) {
+                        sendMessage(session, new ErrorReply(Error.CLIENT_ALREADY_IN_MATCH, joinMethod.reqid));
+                    }
+                    else {
+                        match.getValue().addClient(new Client(joinMethod.clientUuid, session));
+                        sendMessage(session, new JoinReply(match.getValue().getUuid(), joinMethod.reqid));
+                    }
+                    break;
+                }
+            }
+        }
+        //If the client is not authorized to join a match then respond with a INVALID_CLIENT error.
+        if (!contains) {
+            sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, joinMethod.reqid));
+        }
+    }
+
+    private void handleMoveMethod(WebSocketSession session, MoveMethod moveMethod) throws IOException {
+        boolean contains = false;
+        synchronized (matchesMutex) {
+            for (Map.Entry<String, Match> match : matches.entrySet()) {
+                //If match contains client play the clients move.
+                if (match.getValue().containsClientBySessionId(session.getId())) {
+                    contains = true;
+                    //Play the clients move. This also handles the game logic and sending out the results to the clients.
+                    Match.Status status = match.getValue().playMove(session.getId(), moveMethod.move, moveMethod.reqid);
+                    switch (status) {
+                        case ERROR: //When the status is an error we need to inform the clients, close the connection, and remove the match.
+                            match.getValue().getClients().forEach((c) -> {
+                                try {
+                                    sendMessage(c.getSession(), new ErrorReply(Error.MATCH_ERROR, moveMethod.reqid));
+                                    c.getSession().close();
+                                } catch (IOException e) {
+                                    //TODO Figure out when this will throw an exception.
+                                    e.printStackTrace();
+                                }
+                            });
+                            matches.remove(match.getKey());
+                            break;
+                        case ENDED: //When the status is ended we need to close the connection and remove the match.
+                            match.getValue().getClients().forEach((c) -> {
+                                try {
+                                    c.getSession().close();
+                                } catch (IOException e) {
+                                    //TODO Figure out when this will throw an exception.
+                                    e.printStackTrace();
+                                }
+                            });
+                            matches.remove(match.getKey());
+                            break;
+                    }
+                    break;
+                }
+            }
+        }
+        //If the client is not authorized to play in the match then respond with a INVALID_CLIENT error.
+        if (!contains) {
+            sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, moveMethod.reqid));
         }
     }
 

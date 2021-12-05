@@ -2,8 +2,8 @@ package com.sleddgang.gameStackGameServer.config;
 
 import com.sleddgang.gameStackGameServer.handler.GameServerHandler;
 import com.sleddgang.gameStackGameServer.handler.MatchmakingHandler;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.MatchMessage;
-import com.sleddgang.gameStackGameServer.handler.handlerShcemas.AbstractHandlerMessage;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.MatchMessage;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.AbstractHandlerMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;

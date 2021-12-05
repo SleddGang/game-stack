@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackGameServer.handler.handlerShcemas;
+package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
 
 /**
  * Used to pass messages from the

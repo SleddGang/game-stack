@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackGameServer.handler.handlerShcemas;
+package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
 
 /**
  * Used to inform the matchmaking servers about how many slots are open on this game server.

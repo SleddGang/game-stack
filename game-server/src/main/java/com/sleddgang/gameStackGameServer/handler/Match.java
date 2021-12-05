@@ -69,16 +69,16 @@ public class Match extends AbstractHandlerMessage {
      * @param moveReqid Reqid of the client move message.
      * @return          Returns the status of the game.
      */
-    public Status playMove(String sessionId, Option move, long moveReqid) {
+    public MatchStatus playMove(String sessionId, Option move, long moveReqid) {
         //Return if not all clients are in the match.
         if (clients.size() != MAX_CLIENTS) {
-            return Status.JOINING;
+            return MatchStatus.JOINING;
         }
 
         //Return an error if the client is not already in the match.
         Client client = getClientBySessionId(sessionId);
         if (client == null) {
-            return Status.ERROR;
+            return MatchStatus.ERROR;
         }
         client.setMove(move);
 
@@ -117,15 +117,15 @@ public class Match extends AbstractHandlerMessage {
                         new ResultEvent(playerTwoResult))));
             } catch (IOException e) {
                 e.printStackTrace();
-                return Status.ERROR;
+                return MatchStatus.ERROR;
             }
 
             //If the match has been evaluated and there hasn't been an error the match has ended.
-            return Status.ENDED;
+            return MatchStatus.ENDED;
         }
 
         //If all the clients haven't made a move then the match is still in progress.
-        return Status.PLAYING;
+        return MatchStatus.PLAYING;
     }
 
     /**
@@ -227,18 +227,4 @@ public class Match extends AbstractHandlerMessage {
         return null;
     }
 
-    /**
-     * Used to inform the handler of the current state of the WebSocket
-     * <p>JOINING if the clients are still joining.</p>
-     * <p>PLAYING if only one client has played a move.</p>
-     * <p>ENDED if the match has ended without error.</p>
-     * <p>ERROR if the match encountered an error.</p>
-     */
-    //Used to inform the handler of the current status of the server.
-    public enum Status {
-        JOINING,
-        PLAYING,
-        ENDED,
-        ERROR;
-    }
 }

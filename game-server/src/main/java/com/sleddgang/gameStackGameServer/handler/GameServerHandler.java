@@ -277,7 +277,7 @@ public class GameServerHandler extends TextWebSocketHandler {
                 if (match.getValue().containsClientBySessionId(session.getId())) {
                     contains = true;
                     //Play the clients move. This also handles the game logic and sending out the results to the clients.
-                    Match.Status status = match.getValue().playMove(session.getId(), moveMethod.move, moveMethod.reqid);
+                    MatchStatus status = match.getValue().playMove(session.getId(), moveMethod.move, moveMethod.reqid);
                     switch (status) {
                         case ERROR: //When the status is an error we need to inform the clients, close the connection, and remove the match.
                             match.getValue().getClients().forEach((c) -> {

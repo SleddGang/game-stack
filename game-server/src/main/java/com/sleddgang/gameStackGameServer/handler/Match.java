@@ -12,6 +12,9 @@ import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Match contains the information to keep track of a match as well as the logic to play the match.
@@ -34,7 +37,7 @@ public class Match extends AbstractHandlerMessage {
      * List of clients that are connected to the match
      */
     //TODO This should maybe be a hash map.
-    private final ArrayList<Client> clients;        //List of clients that are connected to the match.
+    private final Map<String, Client> clients;        //List of clients that are connected to the match.
 
     /**
      * List of clients that are allowed to connect to the match.
@@ -53,7 +56,7 @@ public class Match extends AbstractHandlerMessage {
      */
     public Match(MatchMessage matchMessage) {
         this.uuid = matchMessage.getUuid();
-        this.clients = new ArrayList<>(MAX_CLIENTS);
+        this.clients = new HashMap<>(MAX_CLIENTS);
         this.allowedClients = matchMessage.getAllowedClients();
         this.logic = new CoreLogic();
     }
@@ -83,12 +86,13 @@ public class Match extends AbstractHandlerMessage {
         client.setMove(move);
 
         //Count how many clients have made a move;
-        int validMoves = (int) clients.stream().filter(c -> c.getMove() != null).count();
+        int validMoves = (int) clients.values().stream().filter(c -> c.getMove() != null).count();
 
         //If all the connected players have made a move then evaluate the match.
         if (validMoves == clients.size()) {
             //Get the result of the match.
-            LogicResult logicResult = logic.evaluate(clients.get(0).getMove(), clients.get(1).getMove());
+            List<Client> numberedClients = new ArrayList<>(clients.values());
+            LogicResult logicResult = logic.evaluate(numberedClients.get(0).getMove(), numberedClients.get(1).getMove());
             Result playerOneResult;
             Result playerTwoResult;
             switch (logicResult) {
@@ -111,9 +115,9 @@ public class Match extends AbstractHandlerMessage {
             //Create a new object mapper to serialize the messages we are going to send to the clients.
             ObjectMapper objectMapper = new ObjectMapper();
             try {
-                clients.get(0).getSession().sendMessage(new TextMessage(objectMapper.writeValueAsBytes(
+                numberedClients.get(0).getSession().sendMessage(new TextMessage(objectMapper.writeValueAsBytes(
                         new ResultEvent(playerOneResult))));
-                clients.get(1).getSession().sendMessage(new TextMessage(objectMapper.writeValueAsBytes(
+                numberedClients.get(1).getSession().sendMessage(new TextMessage(objectMapper.writeValueAsBytes(
                         new ResultEvent(playerTwoResult))));
             } catch (IOException e) {
                 e.printStackTrace();
@@ -142,7 +146,7 @@ public class Match extends AbstractHandlerMessage {
         if (clients.size() < MAX_CLIENTS) {
             //Check to see if the client is even allowed in the match.
             if (allowedClients.contains(client.getUuid())) {
-                clients.add(client);
+                clients.put(client.getSessionId(), client);
             }
             else {
                 //This exception gets thrown whenever an attempt to add a client that is not authorized is made.
@@ -159,7 +163,7 @@ public class Match extends AbstractHandlerMessage {
      * Disconnects the WebSockets of every client.
      */
     public void shutdown() {
-        clients.forEach(client -> {
+        clients.values().forEach(client -> {
             try {
                 client.getSession().close();
             } catch (IOException e) {
@@ -174,7 +178,7 @@ public class Match extends AbstractHandlerMessage {
     public ArrayList<String> getAllowedClients() {
         return allowedClients;
     }
-    public ArrayList<Client> getClients() {
+    public Map<String, Client> getClients() {
         return clients;
     }
 
@@ -187,28 +191,7 @@ public class Match extends AbstractHandlerMessage {
      */
     //Check if the match contains a client based on the clients uuid.
     public boolean containsClient(String uuid) {
-        for (Client client : clients) {
-            if (client.getUuid().equals(uuid)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Checks if the match contains a client based on the client's WebSocket session id.
-     *
-     * @param sessionId WebSocket session id of the client's connection.
-     * @return          Returns true if the client is in this match and false if not.
-     */
-    //Check if the match contains a client based on session id.
-    public boolean containsClientBySessionId(String sessionId) {
-        for (Client client : clients) {
-            if (client.getSessionId().equals(sessionId)) {
-                return true;
-            }
-        }
-        return false;
+        return clients.values().stream().anyMatch(client -> client.getUuid().equals(uuid));
     }
 
     /**
@@ -219,10 +202,8 @@ public class Match extends AbstractHandlerMessage {
      */
     //Return a client based on session id.
     public Client getClientBySessionId(String sessionId) {
-        for (Client client : clients) {
-            if (client.getSessionId().equals(sessionId)) {
-                return client;
-            }
+        if (clients.containsKey(sessionId)) {
+            return clients.get(sessionId);
         }
         return null;
     }

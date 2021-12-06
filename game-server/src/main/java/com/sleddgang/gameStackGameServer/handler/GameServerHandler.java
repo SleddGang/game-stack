@@ -179,7 +179,7 @@ public class GameServerHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         synchronized (matchesMutex) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
-                if (match.getValue().getClients().stream().anyMatch(client -> client.getSession().getId().equals(session.getId()))) {
+                if (match.getValue().getClients().containsKey(session.getId())) {
                     match.getValue().shutdown();
                     matches.remove(match.getKey());
                 }
@@ -274,13 +274,13 @@ public class GameServerHandler extends TextWebSocketHandler {
         synchronized (matchesMutex) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
                 //If match contains client play the clients move.
-                if (match.getValue().containsClientBySessionId(session.getId())) {
+                if (match.getValue().getClients().containsKey(session.getId())) {
                     contains = true;
                     //Play the clients move. This also handles the game logic and sending out the results to the clients.
                     MatchStatus status = match.getValue().playMove(session.getId(), moveMethod.move, moveMethod.reqid);
                     switch (status) {
                         case ERROR: //When the status is an error we need to inform the clients, close the connection, and remove the match.
-                            match.getValue().getClients().forEach((c) -> {
+                            match.getValue().getClients().values().forEach((c) -> {
                                 try {
                                     sendMessage(c.getSession(), new ErrorReply(Error.MATCH_ERROR, moveMethod.reqid));
                                     c.getSession().close();
@@ -292,7 +292,7 @@ public class GameServerHandler extends TextWebSocketHandler {
                             matches.remove(match.getKey());
                             break;
                         case ENDED: //When the status is ended we need to close the connection and remove the match.
-                            match.getValue().getClients().forEach((c) -> {
+                            match.getValue().getClients().values().forEach((c) -> {
                                 try {
                                     c.getSession().close();
                                 } catch (IOException e) {

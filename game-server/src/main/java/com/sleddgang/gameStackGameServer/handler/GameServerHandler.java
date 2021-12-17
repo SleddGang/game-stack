@@ -44,7 +44,6 @@ public class GameServerHandler extends TextWebSocketHandler {
      * Contains a list of matches that are currently running on the server.
      */
     private final Map<String, Match> matches = new HashMap<>();         //List of currently running matches.
-    private final Object matchesMutex = new Object();                   //Used to lock matches.
 
     /**
      * Used to send receive messages from the {@link MatchmakingHandler}.
@@ -112,8 +111,13 @@ public class GameServerHandler extends TextWebSocketHandler {
                     log.error("Unable to get message from matchMessageQueue.", e);
                 }
 
-                //Check if we have a match. If not then respond with INVALID_MATCH.
-                if (match != null) {
+                //Check if we have a match.
+                if (match == null) {
+                    log.error("Message from match is null");
+                    continue;
+                }
+
+                synchronized (matches) {
                     //Check if we have any available slots. If not respond with MATCHES_FULL
                     if (matches.size() < slots) {
                         //Check if we already have a match with that uuid. If so respond with DUPLICATE_MATCH otherwise add the match.
@@ -126,8 +130,6 @@ public class GameServerHandler extends TextWebSocketHandler {
                     } else {
                         matchMessageQueue.add(new ErrorMessage(HandlerError.MATCHES_FULL, match.getServer(), match.getReqid()));
                     }
-                } else {
-                    matchMessageQueue.add(new ErrorMessage(HandlerError.INVALID_MATCH, match.getServer(), match.getReqid()));
                 }
             }
         });
@@ -141,7 +143,10 @@ public class GameServerHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        webSocketSessions.add(new Session(session));
+        log.info("New connection from " + session.getRemoteAddress());
+        synchronized (webSocketSessions) {
+            webSocketSessions.add(new Session(session));
+        }
     }
 
     /**
@@ -179,7 +184,7 @@ public class GameServerHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        synchronized (matchesMutex) {
+        synchronized (matches) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
                 if (match.getValue().getClients().containsKey(session.getId())) {
                     match.getValue().shutdown();
@@ -188,7 +193,9 @@ public class GameServerHandler extends TextWebSocketHandler {
                 break;
             }
         }
-        webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
+        synchronized (webSocketSessions) {
+            webSocketSessions.removeIf(s -> s.getSession().getId().equals(session.getId()));
+        }
     }
 
     /**
@@ -209,10 +216,12 @@ public class GameServerHandler extends TextWebSocketHandler {
     private void handleMethod(WebSocketSession session, AbstractGameMethod method) throws IOException {
         //Get the client from the matches. If the client is not in a match then client will be null.
         Session client = null;
-        for (Session s : webSocketSessions) {
-            if (s.getSession().getId().equals(session.getId())) {
-                client = s;
-                break;
+        synchronized (webSocketSessions) {
+            for (Session s : webSocketSessions) {
+                if (s.getSession().getId().equals(session.getId())) {
+                    client = s;
+                    break;
+                }
             }
         }
 
@@ -247,7 +256,7 @@ public class GameServerHandler extends TextWebSocketHandler {
 
     private void handleJoinMethod(WebSocketSession session, JoinMethod joinMethod) throws IOException {
         boolean contains = false;
-        synchronized (matchesMutex) {
+        synchronized (matches) {
             //Loop through each match in matches and find the one that allows the client.
             for (Map.Entry<String, Match> match : matches.entrySet()) {
                 if (match.getValue().getAllowedClients().contains(joinMethod.clientUuid)) {
@@ -273,7 +282,7 @@ public class GameServerHandler extends TextWebSocketHandler {
 
     private void handleMoveMethod(WebSocketSession session, MoveMethod moveMethod) throws IOException {
         boolean contains = false;
-        synchronized (matchesMutex) {
+        synchronized (matches) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
                 //If match contains client play the clients move.
                 if (match.getValue().getClients().containsKey(session.getId())) {

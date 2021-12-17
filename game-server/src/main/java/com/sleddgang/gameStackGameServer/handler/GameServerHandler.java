@@ -10,6 +10,7 @@ import com.sleddgang.gameStackGameServer.schemas.methods.MoveMethod;
 import com.sleddgang.gameStackGameServer.schemas.methods.PingMethod;
 import com.sleddgang.gameStackGameServer.schemas.replies.JoinReply;
 import com.sleddgang.gameStackGameServer.schemas.replies.PongReply;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.web.socket.CloseStatus;
@@ -30,6 +31,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  *
  * @author  Benjamin
  */
+@Log4j2
 public class GameServerHandler extends TextWebSocketHandler {
     /**
      * WebSocketSessions contains all the currently connected sessions.
@@ -71,6 +73,8 @@ public class GameServerHandler extends TextWebSocketHandler {
      * @param appContext Current application context used to get slots gameMessageQueue and matchMessageQueue.
      */
     public GameServerHandler(ConfigurableApplicationContext appContext) {
+        log.info("Initializing GameServerHandler.");
+
         //TODO Handle null env variables.
         //Get the slots from the passed environmental variable. You did pass and environmental variable didn't you?
         env = appContext.getBean(Environment.class);
@@ -83,7 +87,7 @@ public class GameServerHandler extends TextWebSocketHandler {
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
-            System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+            log.fatal("Unable to cast gameMessageQueue to BlockingQueue.");
             appContext.close();
         }
 
@@ -94,7 +98,7 @@ public class GameServerHandler extends TextWebSocketHandler {
         }
         else {
             matchMessageQueue = new LinkedBlockingQueue<>();
-            System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+            log.fatal("Unable to cast gameMessageQueue to BlockingQueue.");
             appContext.close();
         }
 
@@ -105,7 +109,7 @@ public class GameServerHandler extends TextWebSocketHandler {
                 try {
                     match = gameMessageQueue.take();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    log.error("Unable to get message from matchMessageQueue.", e);
                 }
 
                 //Check if we have a match. If not then respond with INVALID_MATCH.
@@ -152,8 +156,6 @@ public class GameServerHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws IOException {
         //TODO Handle invalid json.
-
-
         AbstractGameMessage message = objectMapper.readValue(textMessage.asBytes(), AbstractGameMessage.class);
 
         //Check if the message is a method and if so figure out what to do with it.

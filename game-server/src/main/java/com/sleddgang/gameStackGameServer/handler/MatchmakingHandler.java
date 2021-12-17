@@ -10,6 +10,7 @@ import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.events.ServerStatusReply;
 import com.sleddgang.gameStackGameServer.schemas.methods.CreateGameMethod;
 import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.web.socket.CloseStatus;
@@ -35,6 +36,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  *
  * @author Benjamin
  */
+@Log4j2
 public class MatchmakingHandler extends TextWebSocketHandler {
     /**
      * WebSocketSessions contains all the currently connected sessions.
@@ -71,6 +73,8 @@ public class MatchmakingHandler extends TextWebSocketHandler {
      *                      the game and match message queues from spring.
      */
     public MatchmakingHandler(ConfigurableApplicationContext appContext) {
+        log.info("Initializing MatchmakingHandler.");
+
         //Get the server id from the environmental variable.
         env = appContext.getBean(Environment.class);
         serverId = env.getProperty("ID");
@@ -82,7 +86,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
-            System.out.println("Unable to cast gameMessageQueue to BlockingQueue.");
+            log.fatal("Unable to cast gameMessageQueue to BlockingQueue.");
             appContext.close();
         }
 
@@ -93,7 +97,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         }
         else {
             matchMessageQueue = new LinkedBlockingQueue<>();
-            System.out.println("Unable to cast matchMessageQueue to BlockingQueue.");
+            log.fatal("Unable to cast matchMessageQueue to BlockingQueue.");
             appContext.close();
         }
 
@@ -104,14 +108,14 @@ public class MatchmakingHandler extends TextWebSocketHandler {
                 try {
                     message = matchMessageQueue.take();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    log.error("Unable to get message from matchMessageQueue.", e);
                 }
                 if (message instanceof Status) {
                     for (WebSocketSession session : webSocketSessions) {
                         try {
                             session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ServerStatusReply(serverId, ((Status) message).getSlots()))));
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            log.error("Unable to send status message.", e);
                         }
                     }
                 }

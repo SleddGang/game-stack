@@ -36,7 +36,6 @@ public class Match extends AbstractHandlerMessage {
     /**
      * List of clients that are connected to the match
      */
-    //TODO This should maybe be a hash map.
     private final Map<String, Client> clients;        //List of clients that are connected to the match.
 
     /**

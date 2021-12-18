@@ -34,9 +34,8 @@ public class Match extends AbstractHandlerMessage {
     private final String uuid;                      //Uuid of the match.
 
     /**
-     * List of clients that are connected to the match
+     * List of clients that are connected to the match. The key is the clients session id.
      */
-    //TODO This should maybe be a hash map.
     private final Map<String, Client> clients;        //List of clients that are connected to the match.
 
     /**
@@ -69,20 +68,20 @@ public class Match extends AbstractHandlerMessage {
      *
      * @param sessionId WebSocket session id of the client playing the move.
      * @param move      Move that the client is player. Either rock paper or scissors.
-     * @param moveReqid Reqid of the client move message.
      * @return          Returns the status of the game.
      */
-    public MatchStatus playMove(String sessionId, Option move, long moveReqid) {
+    public MatchStatus playMove(String sessionId, Option move) {
         //Return if not all clients are in the match.
         if (clients.size() != MAX_CLIENTS) {
             return MatchStatus.JOINING;
         }
 
-        //Return an error if the client is not already in the match.
-        Client client = getClientBySessionId(sessionId);
-        if (client == null) {
+        //Return if we don't recognize the session id as a clients.
+        if (!clients.containsKey(sessionId)) {
             return MatchStatus.ERROR;
         }
+        Client client = clients.get(sessionId);
+
         client.setMove(move);
 
         //Count how many clients have made a move;
@@ -193,19 +192,4 @@ public class Match extends AbstractHandlerMessage {
     public boolean containsClient(String uuid) {
         return clients.values().stream().anyMatch(client -> client.getUuid().equals(uuid));
     }
-
-    /**
-     * Gets the client based on the WebSocket session id.
-     *
-     * @param sessionId WebSocket session id of the client's connection.
-     * @return          Returns the client if the client is found and null if the client is not found.
-     */
-    //Return a client based on session id.
-    public Client getClientBySessionId(String sessionId) {
-        if (clients.containsKey(sessionId)) {
-            return clients.get(sessionId);
-        }
-        return null;
-    }
-
 }

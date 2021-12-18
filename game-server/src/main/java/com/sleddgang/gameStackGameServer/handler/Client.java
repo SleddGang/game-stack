@@ -1,6 +1,8 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.sleddgang.gameStackGameServer.gameLogic.Option;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.web.socket.WebSocketSession;
 
 /**
@@ -9,20 +11,22 @@ import org.springframework.web.socket.WebSocketSession;
  * @see Match
  * @author Benjamin
  */
+@Getter
 public class Client {
     /**
      * Uuid of the client given out by the matchmaking server.
      */
-    private String uuid;
+    private final String uuid;
 
     /**
      * WebSocket session connected to the client.
      */
-    private WebSocketSession session;
+    private final WebSocketSession session;
 
     /**
      * Clients rock paper scissors move. Is null if the client has not made a move.
      */
+    @Setter
     private Option move = null;
 
     /**
@@ -36,32 +40,10 @@ public class Client {
         this.session = session;
     }
 
-    public String getUuid() {
-        return this.uuid;
-    }
-
-    public WebSocketSession getSession() {
-        return session;
-    }
-
     /**
      * @return  The session id of the clients connected session.
      */
     public String getSessionId() {
         return this.session.getId();
-    }
-
-    public Option getMove() {
-        return move;
-    }
-
-
-    /**
-     * Sets both move and moveReqid.
-     *
-     * @param move      Move that the client is making.
-     */
-    public void setMove(Option move) {
-        this.move = move;
     }
 }

@@ -1,11 +1,14 @@
 package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
 
+import lombok.Getter;
+
 /**
  * ErrorMessage is used to send any error from the game handler to the match handler.
  *
  * @author Benjamin
  * @see HandlerError
  */
+@Getter
 public class ErrorMessage extends AbstractHandlerMessage {
     private final HandlerError error;
 
@@ -23,17 +26,5 @@ public class ErrorMessage extends AbstractHandlerMessage {
         this.error = error;
         this.server = server;
         this.reqid = reqid;
-    }
-
-    public HandlerError getError() {
-        return error;
-    }
-
-    public String getServer() {
-        return server;
-    }
-
-    public long getReqid() {
-        return reqid;
     }
 }

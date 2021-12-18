@@ -1,5 +1,6 @@
 package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
 
+import lombok.Getter;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.List;
  *
  * @author Benjamin
  */
+@Getter
 public class Session extends AbstractHandlerMessage {
     private final WebSocketSession session;
     private final List<Long> reqids;
@@ -17,13 +19,5 @@ public class Session extends AbstractHandlerMessage {
     public Session(WebSocketSession session) {
         this.session = session;
         this.reqids = new ArrayList<>();
-    }
-
-    public WebSocketSession getSession() {
-        return this.session;
-    }
-
-    public List<Long> getReqids() {
-        return this.reqids;
     }
 }

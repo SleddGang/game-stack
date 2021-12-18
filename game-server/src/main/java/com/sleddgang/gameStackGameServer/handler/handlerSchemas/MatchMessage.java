@@ -1,5 +1,7 @@
 package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
 
+import lombok.Getter;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -9,6 +11,7 @@ import java.util.Arrays;
  *
  * @author Benjamin
  */
+@Getter
 public class MatchMessage {
     private final String uuid;
     private final ArrayList<String> allowedClients;
@@ -20,21 +23,5 @@ public class MatchMessage {
         this.allowedClients = new ArrayList<>(Arrays.asList(allowedClients));
         this.server = server;
         this.reqid = reqid;
-    }
-
-    public String getUuid() {
-        return uuid;
-    }
-
-    public ArrayList<String> getAllowedClients() {
-        return allowedClients;
-    }
-
-    public String getServer() {
-        return server;
-    }
-
-    public long getReqid() {
-        return reqid;
     }
 }

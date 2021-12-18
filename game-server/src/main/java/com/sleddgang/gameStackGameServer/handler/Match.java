@@ -8,6 +8,7 @@ import com.sleddgang.gameStackGameServer.handler.handlerSchemas.MatchMessage;
 import com.sleddgang.gameStackGameServer.handler.handlerSchemas.AbstractHandlerMessage;
 import com.sleddgang.gameStackGameServer.schemas.Result;
 import com.sleddgang.gameStackGameServer.schemas.events.ResultEvent;
+import lombok.Getter;
 import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
@@ -31,16 +32,19 @@ public class Match extends AbstractHandlerMessage {
     /**
      * Uuid of the match given out by the matchmaking server.
      */
+    @Getter
     private final String uuid;                      //Uuid of the match.
 
     /**
      * List of clients that are connected to the match. The key is the clients session id.
      */
+    @Getter
     private final Map<String, Client> clients;        //List of clients that are connected to the match.
 
     /**
      * List of clients that are allowed to connect to the match.
      */
+    @Getter
     private final ArrayList<String> allowedClients; //List of uuids of clients that are allowed to be in the match.
 
     /**
@@ -172,17 +176,6 @@ public class Match extends AbstractHandlerMessage {
             }
         });
     }
-
-    public String getUuid() {
-        return uuid;
-    }
-    public ArrayList<String> getAllowedClients() {
-        return allowedClients;
-    }
-    public Map<String, Client> getClients() {
-        return clients;
-    }
-
 
     /**
      * Checks if the match contains a client based on the client's uuid

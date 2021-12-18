@@ -46,9 +46,9 @@ class GameServerHandlerTest {
     private ObjectMapper objectMapper;
     private URI gameUri;
     private URI matchUri;
-    private BlockingQueue<String> clientOneBlockingQueue;
-    private BlockingQueue<String> clientTwoBlockingQueue;
-    private BlockingQueue<String> matchBlockingQueue;
+    private ArrayBlockingQueue<String> clientOneBlockingQueue;
+    private ArrayBlockingQueue<String> clientTwoBlockingQueue;
+    private ArrayBlockingQueue<String> matchBlockingQueue;
     private TextWebSocketHandler clientOneHandler;
     private TextWebSocketHandler clientTwoHandler;
     private TextWebSocketHandler matchHandler;
@@ -62,9 +62,9 @@ class GameServerHandlerTest {
 
         gameUri = new URI(String.format("ws://localhost:%d/game", port));
         matchUri = new URI(String.format("ws://localhost:%d/matchmaking", port));
-        clientOneBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
-        clientTwoBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
-        matchBlockingQueue = new ArrayBlockingQueue(2);    //Used to send messages out of the handler.
+        clientOneBlockingQueue = new ArrayBlockingQueue(10);    //Used to send messages out of the handler.
+        clientTwoBlockingQueue = new ArrayBlockingQueue(10);    //Used to send messages out of the handler.
+        matchBlockingQueue = new ArrayBlockingQueue(10);    //Used to send messages out of the handler.
 
         clientOneHandler = createHandler(message -> {
             System.out.println("Client1 Handler: " + message);

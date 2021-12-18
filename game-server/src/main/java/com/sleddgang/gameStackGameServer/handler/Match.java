@@ -164,7 +164,9 @@ public class Match extends AbstractHandlerMessage {
     public void shutdown() {
         clients.values().forEach(client -> {
             try {
-                client.getSession().close();
+                if (client.getSession().isOpen()) {
+                    client.getSession().close();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }

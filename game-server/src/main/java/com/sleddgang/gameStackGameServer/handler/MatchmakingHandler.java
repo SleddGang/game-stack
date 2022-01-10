@@ -4,10 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sleddgang.gameStackGameServer.handler.handlerSchemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
-import com.sleddgang.gameStackGameServer.schemas.events.ServerStatusEvent;
 import com.sleddgang.gameStackGameServer.schemas.methods.AddClientMethod;
+import com.sleddgang.gameStackGameServer.schemas.methods.GetStatusMethod;
 import com.sleddgang.gameStackGameServer.schemas.replies.AddClientReply;
 import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
+import com.sleddgang.gameStackGameServer.schemas.replies.ServerStatusReply;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
@@ -53,7 +54,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
      * Used to send messages to the {@link GameServerHandler}.
      * <p>See {@link GameServerHandler}'s constructor for the code that listens for the these messages.</p>
      */
-    private final BlockingQueue<ClientMessage> gameMessageQueue; //Used to send messages to the GameServerHandler
+    private final BlockingQueue<AbstractHandlerMessage> gameMessageQueue; //Used to send messages to the GameServerHandler
 
     /**
      * Used to send receive messages from the {@link GameServerHandler}.
@@ -80,7 +81,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         //Get the gameMessageQueue from the app context.
         Object gameQueue = appContext.getBean("gameMessageQueue");
         if (gameQueue instanceof BlockingQueue) {
-            gameMessageQueue = (BlockingQueue<ClientMessage>) gameQueue;
+            gameMessageQueue = (BlockingQueue<AbstractHandlerMessage>) gameQueue;
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
@@ -108,23 +109,29 @@ public class MatchmakingHandler extends TextWebSocketHandler {
                 } catch (InterruptedException e) {
                     log.error("Unable to get message from matchMessageQueue.", e);
                 }
-                if (message instanceof Status) {
+                if (message instanceof GetStatusResponse) {
+                    GetStatusResponse statusResponse = (GetStatusResponse) message;
                     for (WebSocketSession session : webSocketSessions) {
                         try {
-                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ServerStatusEvent(serverId, ((Status) message).getSlots()))));
+                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ServerStatusReply(
+                                    statusResponse.getGameSlotsLeft(),
+                                    statusResponse.getMaxGameSlots(),
+                                    statusResponse.getClientQueue(),
+                                    message.getReqid()
+                            ))));
                         } catch (IOException e) {
                             log.error("Unable to send status message.", e);
                         }
                     }
                 }
-                else if (message instanceof ClientReplyMessage) {
-                    ClientReplyMessage replyMessage = (ClientReplyMessage) message;
+                else if (message instanceof ClientResponse) {
+                    ClientResponse replyMessage = (ClientResponse) message;
                     boolean contains = false;
                     for (WebSocketSession session : webSocketSessions) {
                         if (session.getId().equals(replyMessage.getServer())) {
                             contains = true;
                             try {
-                                session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new AddClientReply(replyMessage.getClientUuid(), replyMessage.getId()))));
+                                session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new AddClientReply(replyMessage.getClientUuid(), replyMessage.getReqid()))));
                             } catch (IOException e) {
                                 log.error("Unable to send add client reply message.", e);
                             }
@@ -134,8 +141,8 @@ public class MatchmakingHandler extends TextWebSocketHandler {
                         log.error("Unable to find matchmaking server " + replyMessage.getServer());
                     }
                 }
-                else if (message instanceof ErrorMessage) {
-                    ErrorMessage error = (ErrorMessage) message;
+                else if (message instanceof ErrorResponse) {
+                    ErrorResponse error = (ErrorResponse) message;
                     switch (error.getError()) {
                         case MATCHES_FULL:
                             sendError(error, Error.MATCHES_FULL);
@@ -183,7 +190,12 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         //If the message is a AddClientMethod then add a new ClientMessage to the gameMessageQueue.
         if (message instanceof AddClientMethod) {
             AddClientMethod method = (AddClientMethod) message;
-            gameMessageQueue.add(new ClientMessage(method.clientUuid, session.getId(), method.reqid));
+            gameMessageQueue.add(new ClientRequest(method.clientUuid, session.getId(), method.reqid));
+        }
+        //If the message is a GetStatusMethod then add a new GetStatusRequest to the gameMessageQueue.
+        else if (message instanceof GetStatusMethod) {
+            GetStatusMethod method = (GetStatusMethod) message;
+            gameMessageQueue.add(new GetStatusRequest(session.getId(), method.reqid));
         }
         //If we don't recognize the event type then respond with UNKNOWN_EVENT.
         else {
@@ -212,7 +224,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
      *                      the reqid that the error is responding to.
      * @param error         Type of error to send to the matchmaking server.
      */
-    private void sendError(ErrorMessage errorMessage, Error error) {
+    private void sendError(ErrorResponse errorMessage, Error error) {
         synchronized (webSocketSessions) {
             if (webSocketSessions.stream().anyMatch(s -> s.getId().equals(errorMessage.getServer()))) {
                 WebSocketSession session = webSocketSessions.stream().filter(s -> s.getId().equals(errorMessage.getServer())).findFirst().get();

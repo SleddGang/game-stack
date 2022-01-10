@@ -53,7 +53,7 @@ public class GameServerHandler extends TextWebSocketHandler {
     /**
      * Used to receive messages from the {@link MatchmakingHandler}.
      */
-    private final BlockingQueue<ClientMessage> gameMessageQueue;         //Used to receive messages from the MatchmakingHandler.
+    private final BlockingQueue<AbstractHandlerMessage> gameMessageQueue;         //Used to receive messages from the MatchmakingHandler.
 
     /**
      * Used to send messages to the {@link MatchmakingHandler}.
@@ -87,7 +87,7 @@ public class GameServerHandler extends TextWebSocketHandler {
         //Get the gameMessageQueue from the application context.
         Object gameQueue = appContext.getBean("gameMessageQueue");
         if (gameQueue instanceof BlockingQueue) {
-            gameMessageQueue = (BlockingQueue<ClientMessage>) gameQueue;
+            gameMessageQueue = (BlockingQueue<AbstractHandlerMessage>) gameQueue;
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
@@ -106,35 +106,39 @@ public class GameServerHandler extends TextWebSocketHandler {
             appContext.close();
         }
 
-        //This tread will listen for matches from the matchmaker handler and respond appropriately.
+        //This tread will listen for requests from the matchmaker handler and respond appropriately.
         Thread thread = new Thread(() -> {
             while (true) {
-                ClientMessage client = null;
+                AbstractHandlerMessage request = null;
                 try {
-                    client = gameMessageQueue.take();
+                    request = gameMessageQueue.take();
                 } catch (InterruptedException e) {
                     log.error("Unable to get message from matchMessageQueue.", e);
                 }
 
-                //Check if we have a match.
-                if (client == null) {
+                //Check if we have a request.
+                if (request == null) {
                     log.error("Message from match is null");
                     continue;
                 }
 
-                synchronized (allowedClients) {
-                    ClientMessage finalClient = client;
-                    if (allowedClients.stream().anyMatch(s -> s.equals(finalClient.getClientUuid()))) {
-                        log.error("Matchmaking server " + client.getServer() + " tried to add a duplicate client " + client.getClientUuid());
-                        matchMessageQueue.add(new ErrorMessage(HandlerError.DUPLICATE_CLIENT, client.getServer(), client.getReqid()));
-                    }
-                    else {
-                        log.debug("Adding client " + client.getClientUuid());
-                        allowedClients.add(client.getClientUuid());
-                        matchMessageQueue.add(new ClientReplyMessage(client.getClientUuid(), client.getServer(), client.getReqid()));
+                if (request instanceof ClientRequest) {
+                    ClientRequest client = (ClientRequest) request;
+                    synchronized (allowedClients) {
+                        if (allowedClients.stream().anyMatch(s -> s.equals(client.getClientUuid()))) {
+                            log.error("Matchmaking server " + client.getServer() + " tried to add a duplicate client " + client.getClientUuid());
+                            matchMessageQueue.add(new ErrorResponse(HandlerError.DUPLICATE_CLIENT, client.getServer(), client.getReqid()));
+                        }
+                        else {
+                            log.debug("Adding client " + client.getClientUuid());
+                            allowedClients.add(client.getClientUuid());
+                            matchMessageQueue.add(new ClientResponse(client.getClientUuid(), client.getServer(), client.getReqid()));
+                        }
                     }
                 }
-                matchMessageQueue.add(new Status(slots - matches.size()));
+                else if (request instanceof GetStatusRequest) {
+                    matchMessageQueue.add(new GetStatusResponse(slots - matches.size(), slots, clientQueue.size(), request.getServer(), request.getReqid()));
+                }
             }
         });
         thread.start();
@@ -189,9 +193,11 @@ public class GameServerHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         log.debug("Client disconnected. " + session.getId());
+        boolean contains = false;
         synchronized (matches) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
                 if (match.getValue().getClients().containsKey(session.getId())) {
+                    contains = true;
                     for (Client client : match.getValue().getClients().values()) {
                         allowedClients.remove(client.getUuid());
                     }
@@ -199,6 +205,14 @@ public class GameServerHandler extends TextWebSocketHandler {
                     matches.remove(match.getKey());
                 }
                 break;
+            }
+        }
+        if (!contains) {
+            for (Client client : clientQueue) {
+                if (client.getSession().getId().equals(session.getId())) {
+                    log.debug("Removing client from queue. " + session.getId());
+                    clientQueue.remove(client);
+                }
             }
         }
         synchronized (webSocketSessions) {

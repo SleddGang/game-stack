@@ -1,4 +1,4 @@
-package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
+package com.sleddgang.gameStackGameServer.handler;
 
 import lombok.Getter;
 import org.springframework.web.socket.WebSocketSession;
@@ -12,7 +12,7 @@ import java.util.List;
  * @author Benjamin
  */
 @Getter
-public class Session extends AbstractHandlerMessage {
+public class Session {
     private final WebSocketSession session;
     private final List<Long> reqids;
 

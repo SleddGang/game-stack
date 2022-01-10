@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sleddgang.gameStackGameServer.gameLogic.CoreLogic;
 import com.sleddgang.gameStackGameServer.gameLogic.LogicResult;
 import com.sleddgang.gameStackGameServer.gameLogic.Option;
-import com.sleddgang.gameStackGameServer.handler.handlerSchemas.MatchMessage;
 import com.sleddgang.gameStackGameServer.handler.handlerSchemas.AbstractHandlerMessage;
 import com.sleddgang.gameStackGameServer.schemas.Result;
 import com.sleddgang.gameStackGameServer.schemas.events.ResultEvent;
@@ -14,7 +13,6 @@ import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +23,7 @@ import java.util.Map;
  * @author Benjamin
  */
 @Log4j2
-public class Match extends AbstractHandlerMessage {
+public class Match {
     /**
      * Max number of allowed clients.
      */
@@ -47,17 +45,6 @@ public class Match extends AbstractHandlerMessage {
      * Game logic used to play rock paper scissors.
      */
     private final CoreLogic logic;                  //The core rock paper scissors logic.
-
-    /**
-     * This constructor creates a match based on a MatchMessage.
-     *
-     * @param matchMessage  Contains the uuid of the match and the list of allowed clients.
-     */
-    public Match(MatchMessage matchMessage) {
-        this.uuid = matchMessage.getUuid();
-        this.clients = new HashMap<>(MAX_CLIENTS);
-        this.logic = new CoreLogic();
-    }
 
     public Match(String uuid, Map<String, Client> clients) {
         this.uuid = uuid;

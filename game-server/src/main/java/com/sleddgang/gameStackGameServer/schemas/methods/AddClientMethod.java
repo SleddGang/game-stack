@@ -4,6 +4,9 @@ import com.sleddgang.gameStackGameServer.schemas.AbstractGameMethod;
 
 /**
  * This method is sent from the matchmaking server to the game server to add a client to matchmaking.
+ *
+ * @see com.sleddgang.gameStackGameServer.schemas.replies.AddClientReply
+ * @author Benjamin
  */
 public class AddClientMethod extends AbstractGameMethod {
     /**

@@ -3,7 +3,7 @@ package com.sleddgang.gameStackGameServer.handler.handlerSchemas;
 /**
  * Different types of errors
  *
- * @see ErrorMessage
+ * @see ErrorResponse
  * @author Benjamin
  */
 public enum HandlerError {

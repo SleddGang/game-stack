@@ -5,7 +5,7 @@ import com.sleddgang.gameStackGameServer.schemas.AbstractGameReply;
 import com.sleddgang.gameStackGameServer.schemas.methods.JoinMethod;
 
 /**
- * This event is sent by the game server to a client in response to a join event.
+ * This reply is sent by the game server to a client in response to a join event.
  * This may not be necessary but it's here.
  *
  * @see JoinMethod

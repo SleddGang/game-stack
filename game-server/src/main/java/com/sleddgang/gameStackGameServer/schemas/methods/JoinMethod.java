@@ -4,7 +4,7 @@ import com.sleddgang.gameStackGameServer.schemas.AbstractGameMethod;
 import com.sleddgang.gameStackGameServer.schemas.replies.JoinReply;
 
 /**
- * This event is sent by a client to a game server to attempt to join a match.
+ * This method is sent by a client to a game server to attempt to join a match.
  *
  * @see JoinReply
  * @author Benjamin

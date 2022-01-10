@@ -5,7 +5,7 @@ import com.sleddgang.gameStackGameServer.schemas.AbstractGameReply;
 import com.sleddgang.gameStackGameServer.schemas.methods.PingMethod;
 
 /**
- * PongEvent is sent by the game server to a client in response to a PingEvent.
+ * PongReply is sent by the game server to a client in response to a PingEvent.
  *
  * @see PingMethod
  * @author Benjamin

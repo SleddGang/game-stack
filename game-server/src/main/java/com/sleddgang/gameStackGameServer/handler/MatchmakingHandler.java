@@ -6,7 +6,6 @@ import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
 import com.sleddgang.gameStackGameServer.schemas.events.ServerStatusEvent;
 import com.sleddgang.gameStackGameServer.schemas.methods.AddClientMethod;
-import com.sleddgang.gameStackGameServer.schemas.methods.CreateGameMethod;
 import com.sleddgang.gameStackGameServer.schemas.replies.AddClientReply;
 import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
 import lombok.extern.log4j.Log4j2;

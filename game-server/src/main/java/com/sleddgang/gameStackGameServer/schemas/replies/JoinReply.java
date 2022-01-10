@@ -12,14 +12,11 @@ import com.sleddgang.gameStackGameServer.schemas.methods.JoinMethod;
  * @author Benjamin
  */
 public class JoinReply extends AbstractGameReply {
-    public String matchUuid;
-
-    public JoinReply(String matchUuid, long id) {
-        this.matchUuid = matchUuid;
+    public JoinReply(long id) {
         this.id = id;
     }
 
     public JoinReply() {
-        this("", 0);
+        this(0);
     }
 }

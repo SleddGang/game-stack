@@ -49,7 +49,7 @@ public enum Error {
      * Indicates to a matchmaking server that the game server is unable to make a match because
      * a match with the requested uuid already exists.
      */
-    DUPLICATE_MATCH(7, "The game server already has a match with that uuid"),
+    DUPLICATE_CLIENT(7, "The game server already has a client with that uuid"),
     /**
      * Indicates to a client that the server ran into an error while running the match, and they should
      * join a new match

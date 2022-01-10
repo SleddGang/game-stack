@@ -9,6 +9,7 @@ import com.sleddgang.gameStackGameServer.handler.handlerSchemas.AbstractHandlerM
 import com.sleddgang.gameStackGameServer.schemas.Result;
 import com.sleddgang.gameStackGameServer.schemas.events.ResultEvent;
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
@@ -23,6 +24,7 @@ import java.util.Map;
  * @see Client
  * @author Benjamin
  */
+@Log4j2
 public class Match extends AbstractHandlerMessage {
     /**
      * Max number of allowed clients.
@@ -42,12 +44,6 @@ public class Match extends AbstractHandlerMessage {
     private final Map<String, Client> clients;        //List of clients that are connected to the match.
 
     /**
-     * List of clients that are allowed to connect to the match.
-     */
-    @Getter
-    private final ArrayList<String> allowedClients; //List of uuids of clients that are allowed to be in the match.
-
-    /**
      * Game logic used to play rock paper scissors.
      */
     private final CoreLogic logic;                  //The core rock paper scissors logic.
@@ -60,7 +56,12 @@ public class Match extends AbstractHandlerMessage {
     public Match(MatchMessage matchMessage) {
         this.uuid = matchMessage.getUuid();
         this.clients = new HashMap<>(MAX_CLIENTS);
-        this.allowedClients = matchMessage.getAllowedClients();
+        this.logic = new CoreLogic();
+    }
+
+    public Match(String uuid, Map<String, Client> clients) {
+        this.uuid = uuid;
+        this.clients = clients;
         this.logic = new CoreLogic();
     }
 
@@ -136,36 +137,10 @@ public class Match extends AbstractHandlerMessage {
     }
 
     /**
-     * Checks if the client is allowed in the match and that
-     * the match is not full and if so adds the client to this match.
-     *
-     * @param client                            Client attempting to join the match.
-     * @throws UnsupportedOperationException    Gets thrown if the client is not authorized to join this match.
-     * @throws ArrayIndexOutOfBoundsException   Gets thrown if the match is full.
-     */
-    //Adds a client to the matches list of clients.
-    public void addClient(Client client) throws UnsupportedOperationException, ArrayIndexOutOfBoundsException {
-        //If we can fit a client in the match then add the client.
-        if (clients.size() < MAX_CLIENTS) {
-            //Check to see if the client is even allowed in the match.
-            if (allowedClients.contains(client.getUuid())) {
-                clients.put(client.getSessionId(), client);
-            }
-            else {
-                //This exception gets thrown whenever an attempt to add a client that is not authorized is made.
-                throw new UnsupportedOperationException("Match " + uuid + " does not allow client " + client);
-            }
-        }
-        else {
-            //This exception gets thrown whenever the match already has the max number of clients.
-            throw new ArrayIndexOutOfBoundsException("Match " + uuid + " is already full");
-        }
-    }
-
-    /**
      * Disconnects the WebSockets of every client.
      */
     public void shutdown() {
+        log.debug("Shutting down match " + uuid);
         clients.values().forEach(client -> {
             try {
                 if (client.getSession().isOpen()) {

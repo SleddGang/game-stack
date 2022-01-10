@@ -19,10 +19,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -41,14 +38,22 @@ public class GameServerHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper = new ObjectMapper();       //Used to serialize and deserialize json.
 
     /**
+     * Contains a list of the clients that are currently in queue for a game.
+     * This should only fill up above one client when the server already has used up all available match slots.
+     */
+    private final BlockingQueue<Client> clientQueue = new LinkedBlockingQueue<>();         //List of clients in queue.
+
+    private final List<String> allowedClients = new LinkedList<>();
+
+    /**
      * Contains a list of matches that are currently running on the server.
      */
     private final Map<String, Match> matches = new HashMap<>();         //List of currently running matches.
 
     /**
-     * Used to send receive messages from the {@link MatchmakingHandler}.
+     * Used to receive messages from the {@link MatchmakingHandler}.
      */
-    private final BlockingQueue<MatchMessage> gameMessageQueue;         //Used to receive messages from the MatchmakingHandler.
+    private final BlockingQueue<ClientMessage> gameMessageQueue;         //Used to receive messages from the MatchmakingHandler.
 
     /**
      * Used to send messages to the {@link MatchmakingHandler}.
@@ -82,7 +87,7 @@ public class GameServerHandler extends TextWebSocketHandler {
         //Get the gameMessageQueue from the application context.
         Object gameQueue = appContext.getBean("gameMessageQueue");
         if (gameQueue instanceof BlockingQueue) {
-            gameMessageQueue = (BlockingQueue<MatchMessage>) gameQueue;
+            gameMessageQueue = (BlockingQueue<ClientMessage>) gameQueue;
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
@@ -104,33 +109,32 @@ public class GameServerHandler extends TextWebSocketHandler {
         //This tread will listen for matches from the matchmaker handler and respond appropriately.
         Thread thread = new Thread(() -> {
             while (true) {
-                MatchMessage match = null;
+                ClientMessage client = null;
                 try {
-                    match = gameMessageQueue.take();
+                    client = gameMessageQueue.take();
                 } catch (InterruptedException e) {
                     log.error("Unable to get message from matchMessageQueue.", e);
                 }
 
                 //Check if we have a match.
-                if (match == null) {
+                if (client == null) {
                     log.error("Message from match is null");
                     continue;
                 }
 
-                synchronized (matches) {
-                    //Check if we have any available slots. If not respond with MATCHES_FULL
-                    if (matches.size() < slots) {
-                        //Check if we already have a match with that uuid. If so respond with DUPLICATE_MATCH otherwise add the match.
-                        if (matches.containsKey(match.getUuid())) {
-                            matchMessageQueue.add(new ErrorMessage(HandlerError.DUPLICATE_MATCH, match.getServer(), match.getReqid()));
-                        } else {
-                            matches.put(match.getUuid(), new Match(match));
-                            matchMessageQueue.add(new Status(slots - matches.size()));
-                        }
-                    } else {
-                        matchMessageQueue.add(new ErrorMessage(HandlerError.MATCHES_FULL, match.getServer(), match.getReqid()));
+                synchronized (allowedClients) {
+                    ClientMessage finalClient = client;
+                    if (allowedClients.stream().anyMatch(s -> s.equals(finalClient.getClientUuid()))) {
+                        log.error("Matchmaking server " + client.getServer() + " tried to add a duplicate client " + client.getClientUuid());
+                        matchMessageQueue.add(new ErrorMessage(HandlerError.DUPLICATE_CLIENT, client.getServer(), client.getReqid()));
+                    }
+                    else {
+                        log.debug("Adding client " + client.getClientUuid());
+                        allowedClients.add(client.getClientUuid());
+                        matchMessageQueue.add(new ClientReplyMessage(client.getClientUuid(), client.getServer(), client.getReqid()));
                     }
                 }
+                matchMessageQueue.add(new Status(slots - matches.size()));
             }
         });
         thread.start();
@@ -184,9 +188,13 @@ public class GameServerHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        log.debug("Client disconnected. " + session.getId());
         synchronized (matches) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
                 if (match.getValue().getClients().containsKey(session.getId())) {
+                    for (Client client : match.getValue().getClients().values()) {
+                        allowedClients.remove(client.getUuid());
+                    }
                     match.getValue().shutdown();
                     matches.remove(match.getKey());
                 }
@@ -255,28 +263,17 @@ public class GameServerHandler extends TextWebSocketHandler {
     }
 
     private void handleJoinMethod(WebSocketSession session, JoinMethod joinMethod) throws IOException {
-        boolean contains = false;
-        synchronized (matches) {
-            //Loop through each match in matches and find the one that allows the client.
-            for (Map.Entry<String, Match> match : matches.entrySet()) {
-                if (match.getValue().getAllowedClients().contains(joinMethod.clientUuid)) {
-                    contains = true;
-                    //Check if the client is already in a match. If so respond with a CLIENT_ALREADY_IN_MATCH error.
-                    // Otherwise, add the client to the match and respond to inform the client.
-                    if (match.getValue().containsClient(joinMethod.clientUuid)) {
-                        sendMessage(session, new ErrorReply(Error.CLIENT_ALREADY_IN_MATCH, joinMethod.reqid));
-                    }
-                    else {
-                        match.getValue().addClient(new Client(joinMethod.clientUuid, session));
-                        sendMessage(session, new JoinReply(match.getValue().getUuid(), joinMethod.reqid));
-                    }
-                    break;
-                }
+        synchronized (allowedClients) {
+            if (allowedClients.stream().anyMatch(s -> s.equals(joinMethod.clientUuid))) {
+                log.debug("Client joined. " + joinMethod.clientUuid);
+                clientQueue.add(new Client(joinMethod.clientUuid, session));
+                updateQueue();
+                sendMessage(session, new JoinReply(joinMethod.reqid));
             }
-        }
-        //If the client is not authorized to join a match then respond with a INVALID_CLIENT error.
-        if (!contains) {
-            sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, joinMethod.reqid));
+            else {
+                log.debug("Unauthorized client attempted to join. " + joinMethod.clientUuid);
+                sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, joinMethod.reqid));
+            }
         }
     }
 
@@ -291,27 +288,15 @@ public class GameServerHandler extends TextWebSocketHandler {
                     MatchStatus status = match.getValue().playMove(session.getId(), moveMethod.move);
                     switch (status) {
                         case ERROR: //When the status is an error we need to inform the clients, close the connection, and remove the match.
-                            match.getValue().getClients().values().forEach((c) -> {
-                                try {
-                                    sendMessage(c.getSession(), new ErrorReply(Error.MATCH_ERROR, moveMethod.reqid));
-                                    c.getSession().close();
-                                } catch (IOException e) {
-                                    //TODO Figure out when this will throw an exception.
-                                    e.printStackTrace();
-                                }
-                            });
+                            log.warn("Match ended in an error. " + match.getKey());
+                            match.getValue().shutdown();
                             matches.remove(match.getKey());
                             break;
                         case ENDED: //When the status is ended we need to close the connection and remove the match.
-                            match.getValue().getClients().values().forEach((c) -> {
-                                try {
-                                    c.getSession().close();
-                                } catch (IOException e) {
-                                    //TODO Figure out when this will throw an exception.
-                                    e.printStackTrace();
-                                }
-                            });
+                            log.debug("Match has ended. " + match.getValue().getUuid());
+                            match.getValue().shutdown();
                             matches.remove(match.getKey());
+                            updateQueue();
                             break;
                     }
                     break;
@@ -321,6 +306,30 @@ public class GameServerHandler extends TextWebSocketHandler {
         //If the client is not authorized to play in the match then respond with a INVALID_CLIENT error.
         if (!contains) {
             sendMessage(session, new ErrorReply(Error.INVALID_CLIENT, moveMethod.reqid));
+        }
+    }
+
+    private void updateQueue() {
+        if (clientQueue.size() > 100) {
+            log.warn("Client queue is over the waring limit. clientQueue: " + clientQueue.size());
+        }
+        while (clientQueue.size() > 1 && matches.size() < slots) {
+            UUID uuid = UUID.randomUUID();
+            Map<String, Client> clients = new HashMap<>();
+            synchronized (matches) {
+                for (int i = 0; i < 2; i++) {
+                    try {
+                        Client client = clientQueue.take();
+                        clients.put(client.getSessionId(), client);
+                    } catch (InterruptedException e) {
+                        log.error("Failed to get client from clientQueue: " + e);
+                        return;
+                    }
+                }
+//                clients.values().forEach(client -> log.debug(client.getUuid()));
+                log.debug("Creating match with uuid " + uuid);
+                matches.put(uuid.toString(), new Match(uuid.toString(), clients));
+            }
         }
     }
 

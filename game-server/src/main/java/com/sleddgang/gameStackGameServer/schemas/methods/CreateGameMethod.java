@@ -3,13 +3,12 @@ package com.sleddgang.gameStackGameServer.schemas.methods;
 import com.sleddgang.gameStackGameServer.schemas.AbstractGameMethod;
 
 /**
- * This event is sent from the matchmaking server to the game server to inform it that it should make a new match.
+ * This method is sent from the matchmaking server to the game server to inform it that it should make a new match.
  *
  * @author Benjamin
  */
 public class CreateGameMethod extends AbstractGameMethod {
     /**
-     * Uuid of the match to create.
      */
     public String uuid;
 

@@ -1,14 +1,13 @@
 package com.sleddgang.gameStackGameServer.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sleddgang.gameStackGameServer.handler.handlerSchemas.ErrorMessage;
-import com.sleddgang.gameStackGameServer.handler.handlerSchemas.MatchMessage;
-import com.sleddgang.gameStackGameServer.handler.handlerSchemas.AbstractHandlerMessage;
-import com.sleddgang.gameStackGameServer.handler.handlerSchemas.Status;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.*;
 import com.sleddgang.gameStackGameServer.schemas.Error;
 import com.sleddgang.gameStackGameServer.schemas.*;
-import com.sleddgang.gameStackGameServer.schemas.events.ServerStatusReply;
+import com.sleddgang.gameStackGameServer.schemas.events.ServerStatusEvent;
+import com.sleddgang.gameStackGameServer.schemas.methods.AddClientMethod;
 import com.sleddgang.gameStackGameServer.schemas.methods.CreateGameMethod;
+import com.sleddgang.gameStackGameServer.schemas.replies.AddClientReply;
 import com.sleddgang.gameStackGameServer.schemas.replies.ErrorReply;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -55,7 +54,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
      * Used to send messages to the {@link GameServerHandler}.
      * <p>See {@link GameServerHandler}'s constructor for the code that listens for the these messages.</p>
      */
-    private final BlockingQueue<MatchMessage> gameMessageQueue; //Used to send messages to the GameServerHandler
+    private final BlockingQueue<ClientMessage> gameMessageQueue; //Used to send messages to the GameServerHandler
 
     /**
      * Used to send receive messages from the {@link GameServerHandler}.
@@ -82,7 +81,7 @@ public class MatchmakingHandler extends TextWebSocketHandler {
         //Get the gameMessageQueue from the app context.
         Object gameQueue = appContext.getBean("gameMessageQueue");
         if (gameQueue instanceof BlockingQueue) {
-            gameMessageQueue = (BlockingQueue<MatchMessage>) gameQueue;
+            gameMessageQueue = (BlockingQueue<ClientMessage>) gameQueue;
         }
         else {
             gameMessageQueue = new LinkedBlockingQueue<>();
@@ -113,10 +112,27 @@ public class MatchmakingHandler extends TextWebSocketHandler {
                 if (message instanceof Status) {
                     for (WebSocketSession session : webSocketSessions) {
                         try {
-                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ServerStatusReply(serverId, ((Status) message).getSlots()))));
+                            session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new ServerStatusEvent(serverId, ((Status) message).getSlots()))));
                         } catch (IOException e) {
                             log.error("Unable to send status message.", e);
                         }
+                    }
+                }
+                else if (message instanceof ClientReplyMessage) {
+                    ClientReplyMessage replyMessage = (ClientReplyMessage) message;
+                    boolean contains = false;
+                    for (WebSocketSession session : webSocketSessions) {
+                        if (session.getId().equals(replyMessage.getServer())) {
+                            contains = true;
+                            try {
+                                session.sendMessage(new TextMessage(objectMapper.writeValueAsBytes(new AddClientReply(replyMessage.getClientUuid(), replyMessage.getId()))));
+                            } catch (IOException e) {
+                                log.error("Unable to send add client reply message.", e);
+                            }
+                        }
+                    }
+                    if (!contains) {
+                        log.error("Unable to find matchmaking server " + replyMessage.getServer());
                     }
                 }
                 else if (message instanceof ErrorMessage) {
@@ -125,8 +141,8 @@ public class MatchmakingHandler extends TextWebSocketHandler {
                         case MATCHES_FULL:
                             sendError(error, Error.MATCHES_FULL);
                             break;
-                        case DUPLICATE_MATCH:
-                            sendError(error, Error.DUPLICATE_MATCH);
+                        case DUPLICATE_CLIENT:
+                            sendError(error, Error.DUPLICATE_CLIENT);
                             break;
                         case INVALID_MATCH:
                             sendError(error, Error.INVALID_MATCH_ERROR);
@@ -152,8 +168,8 @@ public class MatchmakingHandler extends TextWebSocketHandler {
 
     /**
      * This function gets called whenever a message is sent from a matchmaking server.
-     * It will deserialize the message and if it contains a create game event then
-     * it will add a create game message to the game server queue.
+     * It will deserialize the message and if it contains a add client message then
+     * it will add a client message to the game server queue.
      * If it does not contain a create game event it will respond with an unknown event error.
      *
      * @param session       WebSocket session of the connected matchmaking server.
@@ -165,10 +181,10 @@ public class MatchmakingHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage textMessage) throws IOException {
         //Deserialize the message from textMessage
         AbstractGameMessage message = objectMapper.readValue(textMessage.asBytes(), AbstractGameMessage.class);
-        //If the message is a CreateGameMethod then add the new match to gameMessageQueue.
-        if (message instanceof CreateGameMethod) {
-            CreateGameMethod method = (CreateGameMethod) message;
-            gameMessageQueue.add(new MatchMessage(method.uuid, method.clients, session.getId(), method.reqid));
+        //If the message is a AddClientMethod then add a new ClientMessage to the gameMessageQueue.
+        if (message instanceof AddClientMethod) {
+            AddClientMethod method = (AddClientMethod) message;
+            gameMessageQueue.add(new ClientMessage(method.clientUuid, session.getId(), method.reqid));
         }
         //If we don't recognize the event type then respond with UNKNOWN_EVENT.
         else {

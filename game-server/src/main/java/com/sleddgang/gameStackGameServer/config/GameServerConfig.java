@@ -2,6 +2,7 @@ package com.sleddgang.gameStackGameServer.config;
 
 import com.sleddgang.gameStackGameServer.handler.GameServerHandler;
 import com.sleddgang.gameStackGameServer.handler.MatchmakingHandler;
+import com.sleddgang.gameStackGameServer.handler.handlerSchemas.ClientMessage;
 import com.sleddgang.gameStackGameServer.handler.handlerSchemas.MatchMessage;
 import com.sleddgang.gameStackGameServer.handler.handlerSchemas.AbstractHandlerMessage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,7 +71,7 @@ public class GameServerConfig implements WebSocketConfigurer {
      */
     //Used to pass messages to the game server handler.
     @Bean(name = "gameMessageQueue")
-    public BlockingQueue<MatchMessage> getGameMessageQueue() {
+    public BlockingQueue<ClientMessage> getGameMessageQueue() {
         return new LinkedBlockingQueue<>();
     }
 }

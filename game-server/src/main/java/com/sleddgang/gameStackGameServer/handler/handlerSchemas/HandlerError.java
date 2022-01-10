@@ -18,5 +18,5 @@ public enum HandlerError {
     /**
      * Indicates that there was an attempt to make a match that already exists.
      */
-    DUPLICATE_MATCH,
+    DUPLICATE_CLIENT,
 }

@@ -192,7 +192,6 @@ public class GameServerHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        log.debug("Client disconnected. " + session.getId());
         boolean contains = false;
         synchronized (matches) {
             for (Map.Entry<String, Match> match : matches.entrySet()) {
@@ -200,11 +199,12 @@ public class GameServerHandler extends TextWebSocketHandler {
                     contains = true;
                     for (Client client : match.getValue().getClients().values()) {
                         allowedClients.remove(client.getUuid());
+                        log.debug("Client disconnected. " + client.getSession().getId());
                     }
                     match.getValue().shutdown();
                     matches.remove(match.getKey());
+                    break;
                 }
-                break;
             }
         }
         if (!contains) {
@@ -279,7 +279,7 @@ public class GameServerHandler extends TextWebSocketHandler {
     private void handleJoinMethod(WebSocketSession session, JoinMethod joinMethod) throws IOException {
         synchronized (allowedClients) {
             if (allowedClients.stream().anyMatch(s -> s.equals(joinMethod.clientUuid))) {
-                log.debug("Client joined. " + joinMethod.clientUuid);
+                log.debug("Client joined " + joinMethod.clientUuid + " with session id " + session.getId());
                 clientQueue.add(new Client(joinMethod.clientUuid, session));
                 updateQueue();
                 sendMessage(session, new JoinReply(joinMethod.reqid));
